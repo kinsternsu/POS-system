@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>POS - Point of Sale</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
+    body { background: #161618; color: #fff; display: flex; height: 100vh; }
+    .pos-container { display: flex; width: 100%; }
+.products-panel { flex: 1; padding: 1.5rem; overflow-y: auto; border-right: 1px solid #2a2a3e; min-width: 0; }
+    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem; }
+    .user-bar { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+    .search-box { width: 100%; padding: 10px 14px; background: #0f0f23; border: 1px solid #2a2a3e; border-radius: 8px; color: #fff; font-size: 0.95rem; margin-bottom: 0.75rem; }
+    .barcode-input { width: 100%; padding: 10px 14px; background: #0f0f23; border: 1px solid #2a2a3e; border-radius: 8px; color: #fff; font-size: 0.95rem; margin-bottom: 0.75rem; }
+    .search-box:focus { outline: none; border-color: #e94560; box-shadow: 0 0 0 3px rgba(233,69,96,0.1); }
+    .category-tabs { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+    .category-tab { padding: 8px 16px; background: #1a1a2e; border: none; border-radius: 20px; color: #888; cursor: pointer; font-size: 0.85rem; transition: 0.2s; }
+    .category-tab:hover { background: #2a2a3e; color: #aaa; }
+    .category-tab.active { background: #e94560; color: #fff; }
+    .products-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 1rem; }
+    .product-card { background: linear-gradient(145deg, #1a1a2e, #252540); padding: 1.25rem; border-radius: 16px; cursor: pointer; transition: 0.25s; text-align: center; border: 1px solid transparent; position: relative; }
+    .product-card:hover { background: #2a2a3e; transform: translateY(-4px); box-shadow: 0 8px 25px rgba(233,69,96,0.15); border-color: #e94560; }
+    .product-card .name { font-weight: 500; margin-bottom: 0.75rem; font-size: 0.95rem; color: #fff; }
+    .product-card .price { color: #4ade80; font-size: 1.4rem; font-weight: bold; }
+    .product-card .stock { color: #666; font-size: 0.8rem; margin-top: 0.5rem; }
+    .product-card .edit-btn { display: none; margin-top: 0.5rem; padding: 6px 12px; background: #60a5fa; color: #000; border: none; border-radius: 6px; font-size: 0.75rem; cursor: pointer; }
+    .product-card:hover .edit-btn { display: inline-block; }
+    #productGrid.admin .edit-btn { display: inline-block !important; }
+    .cart-items { flex: 1; overflow-y: auto; margin-bottom: 1rem; }
+    .cart-item { display: flex; align-items: center; padding: 0.75rem; background: #0f0f23; border-radius: 8px; margin-bottom: 0.5rem; }
+    .cart-item .info { flex: 1; }
+    .cart-item .info .name { font-weight: 500; }
+    .cart-item .info .price { color: #888; font-size: 0.85rem; }
+    .cart-item .qty { display: flex; align-items: center; gap: 0.5rem; }
+    .cart-item .qty button { width: 28px; height: 28px; background: #333; border: none; border-radius: 4px; color: #fff; cursor: pointer; font-size: 1rem; }
+    .cart-item .qty span { min-width: 20px; text-align: center; }
+    .cart-item .remove { background: none; border: none; color: #e94560; cursor: pointer; font-size: 1.2rem; margin-left: 0.5rem; }
+    .cart-summary { background: #0f0f23; padding: 1rem; border-radius: 8px; margin-bottom: 1rem; }
+    .cart-summary .row { display: flex; justify-content: space-between; margin-bottom: 0.5rem; color: #888; }
+    .cart-summary .row.total { color: #fff; font-size: 1.3rem; font-weight: bold; margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid #333; }
+    .checkout-btn { width: 100%; padding: 1rem; background: #4ade80; color: #000; border: none; border-radius: 8px; font-size: 1.2rem; font-weight: bold; cursor: pointer; transition: 0.2s; }
+    .checkout-btn:hover { background: #22c55e; }
+    .checkout-btn.cash { background: #e94560; color: #fff; }
+    .clear-btn { width: 100%; padding: 0.75rem; background: #333; color: #fff; border: none; border-radius: 8px; cursor: pointer; margin-top: 0.5rem; }
+    .form-group label { display: block; color: #aaa; margin-bottom: 0.5rem; font-size: 0.85rem; font-weight: 500; }
+    .form-group input, .form-group select { width: 100%; padding: 12px; background: #0f0f23; border: 1px solid #333; border-radius: 8px; color: #fff; font-size: 0.95rem; transition: 0.2s; }
+    .form-group input:focus { outline: none; border-color: #e94560; background: #1a1a2e; }
+    .form-group input::placeholder { color: #555; }
+    .modal-content h3 { margin-bottom: 1.5rem; color: #fff; font-size: 1.3rem; }
+    .modal-buttons { display: flex; gap: 1rem; margin-top: 1.5rem; }
+    .modal-buttons .btn { flex: 1; padding: 12px; border: none; border-radius: 8px; font-size: 0.95rem; font-weight: 600; cursor: pointer; transition: 0.2s; }
+    .btn-primary { background: #4ade80; color: #000; }
+    .btn-primary:hover { background: #22c55e; }
+    .btn-secondary { background: #333; color: #fff; }
+    .btn-secondary:hover { background: #444; }
+    .btn-danger { background: #ef4444; color: #fff; border: none; padding: 12px; border-radius: 8px; font-size: 0.95rem; font-weight: 600; cursor: pointer; }
+    .btn-danger:hover { background: #dc2626; }
+    .payment-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); align-items: center; justify-content: center; z-index: 1000; backdrop-filter: blur(4px); }
+    .payment-modal.show { display: flex; }
+    .payment-content { background: #1a1a2e; padding: 2rem; border-radius: 12px; width: 350px; text-align: center; }
+    .payment-content h3 { margin-bottom: 1.5rem; }
+    .payment-amount { font-size: 2.5rem; font-weight: bold; margin-bottom: 1.5rem; color: #4ade80; }
+    .payment-buttons { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-bottom: 1rem; }
+    .payment-buttons button { padding: 1rem; border: none; border-radius: 8px; font-size: 1.1rem; cursor: pointer; font-weight: 500; }
+    .payment-buttons .cash-btn { background: #4ade80; color: #000; }
+    .payment-buttons .card-btn { background: #60a5fa; color: #000; }
+    .payment-cancel { background: #333; color: #fff; width: 100%; padding: 1rem; border: none; border-radius: 8px; cursor: pointer; }
+    .receipt { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #fff; color: #000; z-index: 2000; align-items: center; justify-content: center; }
+    .receipt.show { display: flex; }
+    .receipt-content { width: 300px; padding: 2rem; text-align: center; }
+    .receipt-content h2 { margin-bottom: 1rem; }
+    .receipt-content .receipt-items { text-align: left; margin: 1.5rem 0; border-top: 1px dashed #999; border-bottom: 1px dashed #999; padding: 1rem 0; }
+    .receipt-content .receipt-item { display: flex; justify-content: space-between; margin-bottom: 0.5rem; }
+    .receipt-content .total { font-size: 1.5rem; font-weight: bold; margin-top: 1rem; }
+    .receipt-content .close-receipt { margin-top: 2rem; padding: 1rem 2rem; background: #000; color: #fff; border: none; border-radius: 8px; cursor: pointer; }
+    .empty-cart { text-align: center; padding: 3rem; color: #666; }
+    .barcode-input { width: 100%; padding: 12px; background: #0f0f23; border: 1px solid #333; border-radius: 8px; color: #fff; font-size: 1rem; margin-bottom: 1rem; }
+  </style>
+</head>
+<body>
+  <div class="pos-container">
+    <div class="products-panel">
+      <div class="header">
+        <h2>Point of Sale</h2>
+        <div class="user-bar">
+          <button class="logout-btn" id="addProductBtn" onclick="openAddProduct()" style="display:none">+ Add Product</button>
+          <button class="logout-btn" onclick="refreshProducts()" style="font-size:12px">Refresh</button>
+          <span id="userDisplay" style="color:#fff">Cashier</span>
+          <span style="color:#888;cursor:pointer;padding:10px 20px;background:#333;border-radius:8px" onclick="localStorage.removeItem('pos_token');localStorage.removeItem('pos_user');window.location.href='login.html'">Logout</span>
+        </div>
+      </div>
+      <input type="text" class="search-box" id="searchBox" placeholder="Search products..." oninput="filterProducts()">
+      <input type="text" class="barcode-input" id="barcodeInput" placeholder="Scan barcode..." oninput="handleBarcode(event)">
+      <div class="category-tabs" id="categoryTabs"></div>
+      <div class="products-grid" id="productsGrid"></div>
+    </div>
+    <div class="cart-panel">
+      <div class="cart-header">
+        <h2>Cart</h2>
+      </div>
+      <div class="cart-items" id="cartItems"></div>
+      <div class="cart-summary">
+        <div class="row"><span>Subtotal</span><span id="cartSubtotal">$0.00</span></div>
+        <div class="row"><span>Tax</span><span id="cartTax">$0.00</span></div>
+        <div class="row total"><span>Total</span><span id="cartTotal">$0.00</span></div>
+      </div>
+      <button class="checkout-btn" onclick="openPayment()">Checkout</button>
+      <button class="clear-btn" onclick="clearCart()">Clear Cart</button>
+    </div>
+  </div>
+
+  <div class="payment-modal" id="paymentModal">
+    <div class="payment-content">
+      <h3>Select Payment Method</h3>
+      <div class="payment-amount" id="paymentAmount">$0.00</div>
+      
+      <div id="cashPaymentSection" style="display:none;margin-bottom:1rem">
+        <div class="form-group">
+          <label>Amount Received</label>
+          <input type="number" id="cashReceived" step="0.01" placeholder="0.00">
+        </div>
+        <div style="text-align:center;margin:1rem 0;font-size:1.1rem;color:#4ade80">
+          Change: <span id="changeAmount">$0.00</span>
+        </div>
+        <button class="btn btn-primary" style="width:100%" onclick="confirmCashPayment()">Confirm Payment</button>
+      </div>
+      
+      <div id="paymentMethods" class="payment-buttons">
+        <button class="cash-btn" onclick="selectCash()">Cash</button>
+        <button class="card-btn" onclick="processPayment('card')">Card</button>
+      </div>
+      <button class="payment-cancel" onclick="closePayment()">Cancel</button>
+    </div>
+  </div>
+
+  <div class="receipt" id="receipt"></div>
+
+  <div class="payment-modal" id="productModal">
+    <div class="modal-content" style="width:350px">
+      <h3>Add New Product</h3>
+      <div class="form-group">
+        <label>Product Name</label>
+        <input type="text" id="prodName">
+      </div>
+      <div class="form-group">
+        <label>Price</label>
+        <input type="number" id="prodPrice" step="0.01">
+      </div>
+      <div class="form-group">
+        <label>SKU (optional)</label>
+        <input type="text" id="prodSku">
+      </div>
+      <div class="form-group">
+        <label>Barcode (optional)</label>
+        <input type="text" id="prodBarcode">
+      </div>
+      <div class="form-group">
+        <label>Category</label>
+        <input type="text" id="prodCategory" placeholder="e.g. Food, Drink">
+      </div>
+      <div class="form-group">
+        <label>Stock Quantity</label>
+        <input type="number" id="prodStock" value="0">
+      </div>
+      <div class="modal-buttons">
+        <button class="btn btn-secondary" onclick="closeAddProduct()">Cancel</button>
+        <button class="btn btn-primary" id="saveProductBtn" onclick="saveProduct()">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="payment-modal" id="editProductModal">
+    <div class="modal-content" style="width:350px">
+      <h3>Edit Product</h3>
+      <div class="form-group">
+        <label>Product Name</label>
+        <input type="text" id="editProdName">
+      </div>
+      <div class="form-group">
+        <label>Price</label>
+        <input type="number" id="editProdPrice" step="0.01">
+      </div>
+      <div class="form-group">
+        <label>SKU (optional)</label>
+        <input type="text" id="editProdSku">
+      </div>
+      <div class="form-group">
+        <label>Barcode (optional)</label>
+        <input type="text" id="editProdBarcode">
+      </div>
+      <div class="form-group">
+        <label>Category</label>
+        <input type="text" id="editProdCategory">
+      </div>
+      <div class="form-group">
+        <label>Stock Quantity</label>
+        <input type="number" id="editProdStock">
+      </div>
+      <div class="form-group">
+        <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer">
+          <input type="checkbox" id="editProdActive" style="width:auto"> Active
+        </label>
+      </div>
+      <div class="modal-buttons">
+        <button class="btn btn-secondary" onclick="closeEditProduct()">Cancel</button>
+        <button class="btn btn-primary" onclick="updateProduct()">Update</button>
+        <button class="btn btn-danger" onclick="deleteProduct()" style="background:#ef4444;color:#fff">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_URL = 'http://localhost:3000/api';
+    let token = localStorage.getItem('pos_token');
+    let user = JSON.parse(localStorage.getItem('pos_user') || '{}');
+    let cart = [];
+    let products = [];
+    let settings = { tax_rate: 0 };
+    let lastChange = 0;
+    let paymentTotal = 0;
+    
+    window.onerror = function(msg, url, line) {
+      alert('JS Error: ' + msg + ' line:' + line);
+      return true;
+    };
+
+    if (!token) window.location.href = 'login.html';
+    if (user.role === 'admin') {
+      document.getElementById('addProductBtn').style.display = 'block';
+      document.getElementById('productsGrid').classList.add('admin');
+    }
+    
+    document.getElementById('userDisplay').textContent = user.name || 'Cashier';
+    
+    async function init() {
+      await refreshProducts();
+      setInterval(refreshProducts, 5000);
+    }
+
+    async function refreshProducts() {
+      try {
+        console.log('Fetching products from:', `${API_URL}/products`);
+        const response = await fetch(`${API_URL}/products`, { 
+          headers: { 'Authorization': `Bearer ${token}` } 
+        });
+        console.log('Response status:', response.status);
+        products = await response.json();
+        console.log('Products raw:', products);
+        
+        settings = await fetch(`${API_URL}/settings`, { headers: { 'Authorization': `Bearer ${token}` } }).then(r => r.json());
+        
+        if (!Array.isArray(products) || products.length === 0) {
+          document.getElementById('productsGrid').innerHTML = '<p style="color:#666;padding:2rem;text-align:center">Loading products or none available...</p>';
+          return;
+        }
+        
+        renderCategories();
+        renderProducts();
+        console.log('Products rendered:', products.length);
+      } catch(err) {
+        console.error('Error:', err);
+        document.getElementById('productsGrid').innerHTML = '<p style="color:red;padding:2rem">Error: ' + err.message + '</p>';
+      }
+    }
+
+    function renderCategories() {
+      const categories = ['All', ...new Set(products.map(p => p.category || 'Uncategorized').filter(Boolean))];
+      document.getElementById('categoryTabs').innerHTML = categories.map(c => `
+        <button class="category-tab ${c === 'All' ? 'active' : ''}" onclick="filterCategory('${c}')">${c}</button>
+      `).join('');
+    }
+
+    function filterCategory(category) {
+      document.querySelectorAll('.category-tab').forEach(t => t.classList.remove('active'));
+      event.target.classList.add('active');
+      renderProducts(category === 'All' ? null : category);
+    }
+
+    function renderProducts(category = null) {
+      const search = document.getElementById('searchBox').value.toLowerCase();
+      let filtered = products.filter(p => p.name.toLowerCase().includes(search));
+      if (category) filtered = filtered.filter(p => p.category === category);
+      document.getElementById('productsGrid').innerHTML = filtered.map(p => `
+        <div class="product-card" onclick="addToCart(${p.id})">
+          <div class="name">${p.name}</div>
+          <div class="price">$${p.price.toFixed(2)}</div>
+          <div class="stock">Stock: ${p.stock ?? 'N/A'}</div>
+          <button class="edit-btn" onclick="event.stopPropagation(); editProduct(${p.id})">Edit</button>
+        </div>
+      `).join('');
+    }
+
+    function filterProducts() {
+      renderProducts();
+    }
+
+    function handleBarcode(e) {
+      if (e.key === 'Enter') {
+        const code = e.target.value.trim();
+        const product = products.find(p => p.barcode === code);
+        if (product) { addToCart(product.id); e.target.value = ''; }
+        else if (code) { alert('Product not found'); }
+      }
+    }
+
+    function addToCart(productId) {
+      const product = products.find(p => p.id === productId);
+      if (!product) return;
+      const existing = cart.find(c => c.product_id === productId);
+      if (existing) existing.quantity++;
+      else cart.push({ product_id: productId, name: product.name, price: product.price, quantity: 1 });
+      renderCart();
+    }
+
+    function updateQty(productId, change) {
+      const item = cart.find(c => c.product_id === productId);
+      if (item) {
+        item.quantity += change;
+        if (item.quantity <= 0) cart = cart.filter(c => c.product_id !== productId);
+      }
+      renderCart();
+    }
+
+    function removeItem(productId) {
+      cart = cart.filter(c => c.product_id !== productId);
+      renderCart();
+    }
+
+    function clearCart() { cart = []; renderCart(); }
+
+    function renderCart() {
+      if (!cart.length) {
+        document.getElementById('cartItems').innerHTML = '<div class="empty-cart">Cart is empty</div>';
+      } else {
+        document.getElementById('cartItems').innerHTML = cart.map(item => `
+          <div class="cart-item">
+            <div class="info">
+              <div class="name">${item.name}</div>
+              <div class="price">$${item.price.toFixed(2)}</div>
+            </div>
+            <div class="qty">
+              <button onclick="updateQty(${item.product_id}, -1)">-</button>
+              <span>${item.quantity}</span>
+              <button onclick="updateQty(${item.product_id}, 1)">+</button>
+              <button class="remove" onclick="removeItem(${item.product_id})">×</button>
+            </div>
+          </div>
+        `).join('');
+      }
+      const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+      const tax = subtotal * (settings.tax_rate || 0) / 100;
+      const total = subtotal + tax;
+      document.getElementById('cartSubtotal').textContent = '$' + subtotal.toFixed(2);
+      document.getElementById('cartTax').textContent = '$' + tax.toFixed(2);
+      document.getElementById('cartTotal').textContent = '$' + total.toFixed(2);
+      document.getElementById('paymentAmount').textContent = '$' + total.toFixed(2);
+    }
+
+    function openPayment() {
+      if (!cart.length) return alert('Cart is empty');
+      document.getElementById('paymentModal').classList.add('show');
+    }
+
+    function closePayment() {
+      document.getElementById('paymentModal').classList.remove('show');
+      document.getElementById('paymentMethods').style.display = 'grid';
+      document.getElementById('cashPaymentSection').style.display = 'none';
+    }
+
+    async function processPayment(paymentMethod) {
+      try {
+        const res = await fetch(`${API_URL}/transactions`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ items: cart, payment_method: paymentMethod })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        showReceipt(data);
+        cart = [];
+        renderCart();
+        closePayment();
+      } catch (err) { alert(err.message); }
+    }
+    
+    function selectCash() {
+      paymentTotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+      document.getElementById('paymentMethods').style.display = 'none';
+      document.getElementById('cashPaymentSection').style.display = 'block';
+      document.getElementById('cashReceived').value = '';
+      document.getElementById('changeAmount').textContent = '$0.00';
+      document.getElementById('cashReceived').focus();
+    }
+    
+    document.getElementById('cashReceived').addEventListener('input', function() {
+      const received = parseFloat(this.value) || 0;
+      const change = Math.max(0, received - paymentTotal);
+      document.getElementById('changeAmount').textContent = '$' + change.toFixed(2);
+    });
+    
+    function confirmCashPayment() {
+      const received = parseFloat(document.getElementById('cashReceived').value) || 0;
+      if (received < paymentTotal) {
+        alert('Insufficient amount. Please enter more cash.');
+        return;
+      }
+      lastChange = received - paymentTotal;
+      processPayment('cash');
+    }
+    
+    function showReceipt(transaction) {
+      const r = document.getElementById('receipt');
+      r.classList.add('show');
+      
+      let changeInfo = '';
+      if (transaction.payment_method === 'cash' && lastChange > 0) {
+        changeInfo = `<p style="color:#4ade80;margin-top:0.5rem">Change Given: $${lastChange.toFixed(2)}</p>`;
+      }
+      
+      r.innerHTML = `
+        <div class="receipt-content">
+          <h2>RECEIPT</h2>
+          <p>Order #${transaction.id}</p>
+          <p>${new Date().toLocaleString()}</p>
+          <div class="receipt-items">
+            ${transaction.items.map(i => `
+              <div class="receipt-item">
+                <span>${i.quantity}x ${i.name}</span>
+                <span>$${i.total.toFixed(2)}</span>
+              </div>
+            `).join('')}
+          </div>
+          <div class="row"><span>Subtotal:</span><span>$${transaction.subtotal.toFixed(2)}</div>
+          <div class="row"><span>Tax:</span><span>$${transaction.tax.toFixed(2)}</div>
+          <div class="total">Total: $${transaction.total.toFixed(2)}</div>
+          ${changeInfo}
+          <p style="margin-top:1rem">Paid by: ${transaction.payment_method}</p>
+          <button class="close-receipt" onclick="document.getElementById('receipt').classList.remove('show')">Close</button>
+        </div>
+      `;
+    }
+
+    function logout() { 
+      try {
+        localStorage.removeItem('pos_token'); 
+        localStorage.removeItem('pos_user'); 
+        window.location.href = 'login.html';
+      } catch(e) {
+        alert('Logout error: ' + e.message);
+      }
+    }
+
+    function openAddProduct() { document.getElementById('productModal').classList.add('show'); }
+    function closeAddProduct() { document.getElementById('productModal').classList.remove('show'); }
+    
+    async function saveProduct() {
+      const data = {
+        name: document.getElementById('prodName').value,
+        price: parseFloat(document.getElementById('prodPrice').value),
+        sku: document.getElementById('prodSku').value,
+        barcode: document.getElementById('prodBarcode').value,
+        category: document.getElementById('prodCategory').value,
+        stock: parseInt(document.getElementById('prodStock').value) || 0
+      };
+      if (!data.name || !data.price) return alert('Name and price required');
+      
+      try {
+        const res = await fetch(`${API_URL}/products`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        if (!res.ok) throw new Error('Failed to save product');
+        products.push({ ...data, id: products.length + 1, is_active: 1 });
+        closeAddProduct();
+        renderCategories();
+        renderProducts();
+        document.getElementById('prodName').value = '';
+        document.getElementById('prodPrice').value = '';
+        alert('Product added!');
+      } catch (err) { alert(err.message); }
+    }
+
+    let editingProductId = null;
+    
+    function editProduct(id) {
+      const p = products.find(x => x.id === id);
+      if (!p) return;
+      editingProductId = id;
+      document.getElementById('editProdName').value = p.name || '';
+      document.getElementById('editProdPrice').value = p.price || '';
+      document.getElementById('editProdSku').value = p.sku || '';
+      document.getElementById('editProdBarcode').value = p.barcode || '';
+      document.getElementById('editProdCategory').value = p.category || '';
+      document.getElementById('editProdStock').value = p.stock || 0;
+      document.getElementById('editProdActive').checked = p.is_active !== 0;
+      document.getElementById('editProductModal').classList.add('show');
+    }
+    
+    function closeEditProduct() {
+      document.getElementById('editProductModal').classList.remove('show');
+      editingProductId = null;
+    }
+    
+    async function updateProduct() {
+      const data = {
+        name: document.getElementById('editProdName').value,
+        price: parseFloat(document.getElementById('editProdPrice').value),
+        sku: document.getElementById('editProdSku').value,
+        barcode: document.getElementById('editProdBarcode').value,
+        category: document.getElementById('editProdCategory').value,
+        stock: parseInt(document.getElementById('editProdStock').value) || 0,
+        is_active: document.getElementById('editProdActive').checked ? 1 : 0
+      };
+      if (!data.name || !data.price) return alert('Name and price required');
+      
+      try {
+        const res = await fetch(`${API_URL}/products/${editingProductId}`, {
+          method: 'PUT',
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        if (!res.ok) throw new Error('Failed to update');
+        const idx = products.findIndex(x => x.id === editingProductId);
+        if (idx >= 0) products[idx] = { ...products[idx], ...data };
+        closeEditProduct();
+        renderProducts();
+        alert('Product updated!');
+      } catch (err) { alert(err.message); }
+    }
+    
+    async function deleteProduct() {
+      if (!confirm('Delete this product?')) return;
+      try {
+        const res = await fetch(`${API_URL}/products/${editingProductId}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!res.ok) throw new Error('Failed to delete');
+        products = products.filter(x => x.id !== editingProductId);
+        closeEditProduct();
+        renderProducts();
+        alert('Product deleted!');
+      } catch (err) { alert(err.message); }
+    }
+
+    init();
+  </script>
+</body>
+</html>

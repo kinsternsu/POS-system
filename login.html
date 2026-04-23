@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>POS System - Login</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
+    body { background: #1a1a2e; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+    .login-container { background: #16213e; padding: 2rem; border-radius: 12px; width: 400px; box-shadow: 0 10px 40px rgba(0,0,0,0.4); }
+    .logo { text-align: center; margin-bottom: 2rem; }
+    .logo h1 { color: #e94560; font-size: 2rem; }
+    .logo p { color: #888; margin-top: 0.5rem; }
+    .form-group { margin-bottom: 1.5rem; }
+    .form-group label { display: block; color: #ccc; margin-bottom: 0.5rem; font-size: 0.9rem; }
+    .form-group input { width: 100%; padding: 12px; border: 1px solid #333; border-radius: 6px; background: #0f0f23; color: #fff; font-size: 1rem; }
+    .form-group input:focus { outline: none; border-color: #e94560; }
+    .btn { width: 100%; padding: 12px; background: #e94560; color: white; border: none; border-radius: 6px; font-size: 1rem; cursor: pointer; transition: 0.2s; }
+    .btn:hover { background: #ff6b6b; }
+    .error { color: #ff6b6b; text-align: center; margin-top: 1rem; display: none; }
+    .pin-login { margin-top: 1.5rem; text-align: center; border-top: 1px solid #333; padding-top: 1.5rem; }
+    .pin-login p { color: #666; font-size: 0.85rem; margin-bottom: 0.75rem; }
+    .pin-input { display: flex; gap: 0.5rem; justify-content: center; margin-bottom: 1rem; }
+    .pin-input input { width: 50px; height: 50px; text-align: center; font-size: 1.5rem; background: #0f0f23; border: 1px solid #333; border-radius: 6px; color: #fff; }
+    .pin-input input:focus { border-color: #e94560; outline: none; }
+  </style>
+</head>
+<body>
+  <div class="login-container">
+    <div class="logo">
+      <h1>POS System</h1>
+      <p>Administrator Dashboard</p>
+    </div>
+    <form id="loginForm">
+      <div class="form-group">
+        <label>Username</label>
+        <input type="text" id="username" autocomplete="username">
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" id="password" autocomplete="current-password">
+      </div>
+      <button type="submit" class="btn">Login</button>
+      <p class="error" id="error"></p>
+    </form>
+    <div class="pin-login">
+      <p>Or enter PIN to login</p>
+      <div class="pin-input">
+        <input type="password" maxlength="1" class="pin-digit">
+        <input type="password" maxlength="1" class="pin-digit">
+        <input type="password" maxlength="1" class="pin-digit">
+        <input type="password" maxlength="1" class="pin-digit">
+      </div>
+    </div>
+  </div>
+  <script>
+    const API_URL = 'http://localhost:3000/api';
+    let token = localStorage.getItem('pos_token');
+    if (token) {
+      const user = JSON.parse(localStorage.getItem('pos_user') || '{}');
+      window.location.href = user.role === 'admin' ? 'admin.html' : 'pos.html';
+    }
+
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const username = document.getElementById('username').value;
+      const password = document.getElementById('password').value;
+      const errorEl = document.getElementById('error');
+      
+      try {
+        const res = await fetch(`${API_URL}/employees/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        localStorage.setItem('pos_token', data.token);
+        localStorage.setItem('pos_user', JSON.stringify(data.user));
+        
+        if (data.user.role === 'admin') {
+          window.location.href = 'admin.html';
+        } else {
+          window.location.href = 'pos.html';
+        }
+      } catch (err) {
+        errorEl.textContent = err.message;
+        errorEl.style.display = 'block';
+      }
+    });
+
+    const pinInputs = document.querySelectorAll('.pin-digit');
+    pinInputs.forEach((input, i) => {
+      input.addEventListener('input', (e) => {
+        if (e.target.value && i < 3) pinInputs[i + 1].focus();
+      });
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Backspace' && !e.target.value && i > 0) pinInputs[i - 1].focus();
+      });
+      input.addEventListener('paste', (e) => {
+        e.preventDefault();
+        const digits = e.clipboardData.getData('text').split('');
+        digits.slice(0, 4).forEach((d, j) => { if (pinInputs[j]) pinInputs[j].value = d; });
+        if (digits[3]) pinInputs[3].focus();
+        checkPin();
+      });
+      input.addEventListener('keyup', checkPin);
+    });
+
+    async function checkPin() {
+      const pin = pinInputs.map(i => i.value).join('');
+      if (pin.length !== 4) return;
+      try {
+        const res = await fetch(`${API_URL}/employees/pin-login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pin })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        localStorage.setItem('pos_token', data.token);
+        localStorage.setItem('pos_user', JSON.stringify(data.user));
+        
+        if (data.user.role === 'admin') {
+          window.location.href = 'admin.html';
+        } else {
+          window.location.href = 'pos.html';
+        }
+      } catch (err) {
+        pinInputs.forEach(i => i.value = '');
+      }
+    }
+  </script>
+</body>
+</html>

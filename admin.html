@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>POS - Administrator Dashboard</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
+    body { background: #161618; color: #fff; display: flex; min-height: 100vh; }
+    .sidebar { width: 240px; background: #1a1a2e; padding: 1.5rem; display: flex; flex-direction: column; }
+    .sidebar h2 { color: #e94560; margin-bottom: 2rem; font-size: 1.5rem; }
+    .nav-item { padding: 12px 16px; border-radius: 8px; color: #888; cursor: pointer; margin-bottom: 0.5rem; transition: 0.2s; }
+    .nav-item:hover, .nav-item.active { background: #e94560; color: #fff; }
+    .user-info { margin-top: auto; padding: 1rem; background: #0f0f23; border-radius: 8px; }
+    .user-info p { font-size: 0.85rem; color: #888; }
+    .user-info strong { display: block; color: #fff; margin-bottom: 0.5rem; }
+    .logout-btn { background: #333; color: #fff; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; width: 100%; margin-top: 0.5rem; }
+    .main { flex: 1; padding: 2rem; overflow-y: auto; }
+    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
+    .header h1 { font-size: 1.8rem; }
+    .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 2rem; }
+    .stat-card { background: #1a1a2e; padding: 1.5rem; border-radius: 12px; }
+    .stat-card h3 { color: #888; font-size: 0.85rem; margin-bottom: 0.5rem; }
+    .stat-card .value { font-size: 1.8rem; font-weight: bold; }
+    .stat-card .value.green { color: #4ade80; }
+    .stat-card .value.blue { color: #60a5fa; }
+    .stat-card .value.orange { color: #fb923c; }
+    .section { display: none; }
+    .section.active { display: block; }
+    table { width: 100%; border-collapse: collapse; background: #1a1a2e; border-radius: 12px; overflow: hidden; }
+    th, td { padding: 1rem; text-align: left; border-bottom: 1px solid #2a2a3e; }
+    th { background: #0f0f23; color: #888; font-weight: 500; font-size: 0.85rem; }
+    tr:hover { background: #2a2a3e; }
+    .badge { padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; }
+    .badge.admin { background: #e94560; }
+    .badge.cashier { background: #4ade80; color: #000; }
+    .btn { padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-size: 0.9rem; }
+    .btn-primary { background: #e94560; color: #fff; }
+    .btn-secondary { background: #333; color: #fff; }
+    .btn-sm { padding: 6px 12px; font-size: 0.8rem; }
+    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); align-items: center; justify-content: center; z-index: 1000; }
+    .modal.show { display: flex; }
+    .modal-content { background: #1a1a2e; padding: 2rem; border-radius: 12px; width: 400px; }
+    .modal-content h3 { margin-bottom: 1.5rem; }
+    .form-group { margin-bottom: 1rem; }
+    .form-group label { display: block; color: #888; margin-bottom: 0.5rem; font-size: 0.85rem; }
+    .form-group input, .form-group select { width: 100%; padding: 10px; background: #0f0f23; border: 1px solid #333; border-radius: 6px; color: #fff; }
+    .form-group input:focus, .form-group select:focus { outline: none; border-color: #e94560; }
+    .modal-buttons { display: flex; gap: 1rem; margin-top: 1.5rem; }
+    .modal-buttons .btn { flex: 1; }
+    .search-bar { display: flex; gap: 1rem; margin-bottom: 1rem; }
+    .search-bar input { flex: 1; padding: 10px 16px; background: #1a1a2e; border: 1px solid #333; border-radius: 8px; color: #fff; }
+    .empty { text-align: center; padding: 3rem; color: #666; }
+  </style>
+</head>
+<body>
+  <div class="sidebar">
+    <h2>POS Admin</h2>
+    <div class="nav-item active" data-section="dashboard">Dashboard</div>
+    <div class="nav-item" data-section="employees">Employees</div>
+    <div class="nav-item" data-section="products">Products</div>
+    <div class="nav-item" data-section="transactions">Transactions</div>
+    <div class="nav-item" data-section="settings">Settings</div>
+    <div class="nav-item" onclick="window.location.href='pos.html'" style="color:#4ade80">POS Terminal</div>
+    <div class="user-info">
+      <p>Logged in as</p>
+      <strong id="userName">Admin</strong>
+      <a href="#" id="logoutLink" style="color:#aaa;text-decoration:underline;cursor:pointer">Logout</a>
+    </div>
+  </div>
+  <div class="main">
+    <div class="header">
+      <h1>Dashboard</h1>
+      <button class="btn btn-primary" onclick="openModal()">+ Add Employee</button>
+    </div>
+    <div class="stats-grid">
+      <div class="stat-card">
+        <h3>Today's Sales</h3>
+        <div class="value" id="todaySales">$0.00</div>
+      </div>
+      <div class="stat-card">
+        <h3>Today's Transactions</h3>
+        <div class="value blue" id="todayTransactions">0</div>
+      </div>
+      <div class="stat-card">
+        <h3>Total Products</h3>
+        <div class="value green" id="totalProducts">0</div>
+      </div>
+      <div class="stat-card">
+        <h3>Total Employees</h3>
+        <div class="value orange" id="totalEmployees">0</div>
+      </div>
+    </div>
+
+    <div class="section active" id="section-dashboard">
+      <h2 style="margin-bottom:1rem">Recent Transactions</h2>
+      <table id="recentTransactions">
+        <thead>
+          <tr><th>ID</th><th>Employee</th><th>Total</th><th>Payment</th><th>Date</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div class="section" id="section-employees">
+      <div class="search-bar">
+        <input type="text" id="employeeSearch" placeholder="Search employees..." oninput="filterEmployees()">
+      </div>
+      <table id="employeesTable">
+        <thead>
+          <tr><th>Name</th><th>Username</th><th>Role</th><th>Status</th><th>Actions</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div class="section" id="section-products">
+      <div class="search-bar">
+        <input type="text" id="productSearch" placeholder="Search products..." oninput="filterProducts()">
+        <button class="btn btn-primary" onclick="addProduct()">+ Add Product</button>
+      </div>
+      <table id="productsTable">
+        <thead>
+          <tr><th>Name</th><th>SKU</th><th>Price</th><th>Stock</th><th>Category</th><th>Actions</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div class="section" id="section-transactions">
+      <div class="search-bar">
+        <input type="date" id="transactionDate" onchange="loadTransactions()">
+        <button class="btn btn-secondary" onclick="loadTransactions()">Filter</button>
+      </div>
+      <table id="transactionsTable">
+        <thead>
+          <tr><th>ID</th><th>Employee</th><th>Items</th><th>Subtotal</th><th>Tax</th><th>Total</th><th>Date</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div class="section" id="section-settings">
+      <h2 style="margin-bottom:1rem">Store Settings</h2>
+      <div style="background:#1a1a2e;padding:2rem;border-radius:12px;max-width:500px">
+        <div class="form-group">
+          <label>Store Name</label>
+          <input type="text" id="storeName">
+        </div>
+        <div class="form-group">
+          <label>Tax Rate (%)</label>
+          <input type="number" id="taxRate" step="0.1">
+        </div>
+        <div class="form-group">
+          <label>Currency</label>
+          <input type="text" id="currency">
+        </div>
+        <button class="btn btn-primary" onclick="saveSettings()">Save Settings</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="employeeModal">
+    <div class="modal-content">
+      <h3>Add Employee</h3>
+      <div class="form-group">
+        <label>Full Name</label>
+        <input type="text" id="empName">
+      </div>
+      <div class="form-group">
+        <label>Username</label>
+        <input type="text" id="empUsername">
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" id="empPassword">
+      </div>
+      <div class="form-group">
+        <label>PIN (4 digits)</label>
+        <input type="text" id="empPin" maxlength="4">
+      </div>
+      <div class="form-group">
+        <label>Role</label>
+        <select id="empRole">
+          <option value="cashier">Cashier</option>
+          <option value="admin">Administrator</option>
+        </select>
+      </div>
+      <div class="modal-buttons">
+        <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="saveEmployee()">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_URL = 'http://localhost:3000/api';
+    let token = localStorage.getItem('pos_token');
+    let user = JSON.parse(localStorage.getItem('pos_user') || '{}');
+
+    if (!token) window.location.href = 'login.html';
+    if (user.role !== 'admin') window.location.href = 'pos.html';
+    
+    document.getElementById('userName').textContent = user.name || 'Admin';
+    
+    document.getElementById('logoutLink').addEventListener('click', function(e) {
+      e.preventDefault();
+      localStorage.clear();
+      window.location.href = 'login.html';
+    });
+
+    document.querySelectorAll('.nav-item').forEach(item => {
+      item.addEventListener('click', () => {
+        document.querySelectorAll('.nav-item, .section').forEach(i => i.classList.remove('active'));
+        item.classList.add('active');
+        document.getElementById('section-' + item.dataset.section).classList.add('active');
+        document.querySelector('.header h1').textContent = item.textContent;
+      });
+    });
+
+    async function apiCall(endpoint, options = {}) {
+      const res = await fetch(`${API_URL}${endpoint}`, {
+        ...options,
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json', ...options.headers }
+      });
+      return res.json();
+    }
+
+    async function loadDashboard() {
+      try {
+        const today = new Date().toISOString().split('T')[0];
+        const [stats, products, employees, recent] = await Promise.all([
+          apiCall(`/transactions/stats?startDate=${today}&endDate=${today}`),
+          apiCall('/products'),
+          apiCall('/employees'),
+          apiCall(`/transactions?limit=10&date=${today}`)
+        ]);
+        document.getElementById('todaySales').textContent = '$' + (stats.total_sales || 0).toFixed(2);
+        document.getElementById('todayTransactions').textContent = stats.total_transactions || 0;
+        document.getElementById('totalProducts').textContent = products.length;
+        document.getElementById('totalEmployees').textContent = employees.length;
+        renderRecentTransactions(recent);
+        document.getElementById('transactionDate').value = today;
+      } catch (err) { console.error(err); }
+    }
+
+    function renderRecentTransactions(transactions) {
+      const tbody = document.querySelector('#recentTransactions tbody');
+      if (!transactions.length) { tbody.innerHTML = '<tr><td colspan="5" class="empty">No transactions today</td></tr>'; return; }
+      tbody.innerHTML = transactions.map(t => `
+        <tr><td>#${t.id}</td><td>${t.employee_name}</td><td>$${t.total.toFixed(2)}</td><td>${t.payment_method}</td><td>${new Date(t.created_at).toLocaleTimeString()}</td></tr>
+      `).join('');
+    }
+
+    async function loadEmployees() {
+      const employees = await apiCall('/employees');
+      const tbody = document.querySelector('#employeesTable tbody');
+      if (!employees.length) { tbody.innerHTML = '<tr><td colspan="5" class="empty">No employees found</td></tr>'; return; }
+      tbody.innerHTML = employees.map(e => `
+        <tr>
+          <td>${e.name}</td>
+          <td>${e.username}</td>
+          <td><span class="badge ${e.role}">${e.role}</span></td>
+          <td>${e.is_active ? 'Active' : 'Inactive'}</td>
+          <td><button class="btn btn-sm btn-secondary" onclick="editEmployee(${e.id}, '${e.name}', '${e.username}', '${e.role}')">Edit</button></td>
+        </tr>
+      `).join('');
+    }
+
+    function filterEmployees() {
+      const q = document.getElementById('employeeSearch').value.toLowerCase();
+      document.querySelectorAll('#employeesTable tbody tr').forEach(tr => {
+        tr.style.display = tr.textContent.toLowerCase().includes(q) ? '' : 'none';
+      });
+    }
+
+    async function loadProducts() {
+      const products = await apiCall('/products');
+      const tbody = document.querySelector('#productsTable tbody');
+      if (!products.length) { tbody.innerHTML = '<tr><td colspan="6" class="empty">No products found</td></tr>'; return; }
+      tbody.innerHTML = products.map(p => `
+        <tr>
+          <td>${p.name}</td><td>${p.sku || '-'}</td><td>$${p.price.toFixed(2)}</td><td>${p.stock || 0}</td><td>${p.category || '-'}</td>
+          <td><button class="btn btn-sm btn-secondary" onclick="editProduct(${p.id})">Edit</button></td>
+        </tr>
+      `).join('');
+    }
+
+    function filterProducts() {
+      const q = document.getElementById('productSearch').value.toLowerCase();
+      document.querySelectorAll('#productsTable tbody tr').forEach(tr => {
+        tr.style.display = tr.textContent.toLowerCase().includes(q) ? '' : 'none';
+      });
+    }
+
+    async function loadTransactions() {
+      const date = document.getElementById('transactionDate').value;
+      const transactions = await apiCall(`/transactions?limit=50&date=${date}`);
+      const tbody = document.querySelector('#transactionsTable tbody');
+      if (!transactions.length) { tbody.innerHTML = '<tr><td colspan="7" class="empty">No transactions found</td></tr>'; return; }
+      tbody.innerHTML = transactions.map(t => `
+        <tr>
+          <td>#${t.id}</td><td>${t.employee_name}</td><td>${t.items.length} items</td>
+          <td>$${t.subtotal.toFixed(2)}</td><td>$${t.tax.toFixed(2)}</td><td>$${t.total.toFixed(2)}</td>
+          <td>${new Date(t.created_at).toLocaleString()}</td>
+        </tr>
+      `).join('');
+    }
+
+    async function loadSettings() {
+      const settings = await apiCall('/settings');
+      document.getElementById('storeName').value = settings.store_name || 'My POS Store';
+      document.getElementById('taxRate').value = settings.tax_rate || 0;
+      document.getElementById('currency').value = settings.currency || 'USD';
+    }
+
+    function openModal() { document.getElementById('employeeModal').classList.add('show'); }
+    function closeModal() { document.getElementById('employeeModal').classList.remove('show'); }
+
+    async function saveEmployee() {
+      const data = {
+        name: document.getElementById('empName').value,
+        username: document.getElementById('empUsername').value,
+        password: document.getElementById('empPassword').value,
+        pin: document.getElementById('empPin').value,
+        role: document.getElementById('empRole').value
+      };
+      if (!data.name || !data.username || !data.password) { alert('Please fill all fields'); return; }
+      await apiCall('/employees/register', { method: 'POST', body: JSON.stringify(data) });
+      closeModal(); loadEmployees(); loadDashboard();
+    }
+
+    async function saveSettings() {
+      await apiCall('/settings', {
+        method: 'PUT',
+        body: JSON.stringify({
+          store_name: document.getElementById('storeName').value,
+          tax_rate: document.getElementById('taxRate').value,
+          currency: document.getElementById('currency').value
+        })
+      });
+      alert('Settings saved!');
+    }
+
+    function logout() {
+      localStorage.removeItem('pos_token');
+      localStorage.removeItem('pos_user');
+      window.location.href = 'login.html';
+    }
+
+    document.querySelectorAll('.nav-item')[1].addEventListener('click', loadEmployees);
+    document.querySelectorAll('.nav-item')[2].addEventListener('click', loadProducts);
+    document.querySelectorAll('.nav-item')[3].addEventListener('click', loadTransactions);
+    document.querySelectorAll('.nav-item')[4].addEventListener('click', loadSettings);
+    loadDashboard();
+  </script>
+</body>
+</html>

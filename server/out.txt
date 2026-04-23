@@ -1,0 +1,2 @@
+Database initialized successfully
+POS Server running at http://localhost:3000
