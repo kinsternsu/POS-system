@@ -54,6 +54,20 @@ export function initializeDatabase() {
       value TEXT
     );
 
+    CREATE TABLE IF NOT EXISTS returns (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      original_transaction_id INTEGER,
+      employee_id INTEGER NOT NULL,
+      items TEXT NOT NULL,
+      reason TEXT,
+      status TEXT DEFAULT 'circulated',
+      refund_amount REAL NOT NULL,
+      payment_method TEXT DEFAULT 'cash',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (original_transaction_id) REFERENCES transactions(id),
+      FOREIGN KEY (employee_id) REFERENCES employees(id)
+    );
+
     INSERT OR IGNORE INTO settings (key, value) VALUES ('store_name', 'My POS Store');
     INSERT OR IGNORE INTO settings (key, value) VALUES ('tax_rate', '0');
     INSERT OR IGNORE INTO settings (key, value) VALUES ('currency', 'USD');

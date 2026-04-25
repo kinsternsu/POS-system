@@ -1,0 +1,10 @@
+Real-Time Perpetual Tracking
+The engine uses perpetual inventory management, meaning it updates stock levels instantly after every action: 
+Business News Daily
+Business News Daily
+ +1
+Sales: The moment a barcode is scanned and a sale is finalized, the system automatically subtracts the item from your digital "on-hand" count. 
+SalesPlay POS
+SalesPlay POS
+ +1
+Returns: When a customer brings an item back, the engine adds it back into circulation or moves it to a "damaged" status for inspection. :create an action plan to implement these features.

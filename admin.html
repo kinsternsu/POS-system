@@ -60,6 +60,7 @@
     <div class="nav-item" data-section="employees">Employees</div>
     <div class="nav-item" data-section="products">Products</div>
     <div class="nav-item" data-section="transactions">Transactions</div>
+    <div class="nav-item" data-section="returns">Returns</div>
     <div class="nav-item" data-section="settings">Settings</div>
     <div class="nav-item" onclick="window.location.href='pos.html'" style="color:#4ade80">POS Terminal</div>
     <div class="user-info">
@@ -135,6 +136,38 @@
       <table id="transactionsTable">
         <thead>
           <tr><th>ID</th><th>Employee</th><th>Items</th><th>Subtotal</th><th>Tax</th><th>Total</th><th>Date</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div class="section" id="section-returns">
+      <div class="search-bar">
+        <input type="date" id="returnDate" onchange="loadReturns()">
+        <select id="returnStatusFilter" onchange="loadReturns()" style="padding:10px;background:#1a1a2e;border:1px solid #333;border-radius:8px;color:#fff">
+          <option value="">All Status</option>
+          <option value="circulated">Circulated</option>
+          <option value="damaged">Damaged</option>
+        </select>
+        <button class="btn btn-secondary" onclick="loadReturns()">Filter</button>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-bottom:1.5rem">
+        <div class="stat-card">
+          <h3>Total Returns</h3>
+          <div class="value" id="totalReturns">0</div>
+        </div>
+        <div class="stat-card">
+          <h3>Total Refunds</h3>
+          <div class="value orange" id="totalRefunds">$0.00</div>
+        </div>
+        <div class="stat-card">
+          <h3>Damaged Items</h3>
+          <div class="value" style="color:#ef4444" id="damagedItems">0</div>
+        </div>
+      </div>
+      <table id="returnsTable">
+        <thead>
+          <tr><th>ID</th><th>Employee</th><th>Items</th><th>Refund</th><th>Reason</th><th>Status</th><th>Date</th></tr>
         </thead>
         <tbody></tbody>
       </table>
@@ -307,6 +340,34 @@
       `).join('');
     }
 
+    async function loadReturns() {
+      const date = document.getElementById('returnDate').value;
+      const status = document.getElementById('returnStatusFilter').value;
+      let url = '/returns?limit=50';
+      if (date) url += '&date=' + date;
+      if (status) url += '&status=' + status;
+      
+      const [returns, stats] = await Promise.all([
+        apiCall(url),
+        apiCall('/returns/stats')
+      ]);
+      
+      document.getElementById('totalReturns').textContent = stats.total_returns || 0;
+      document.getElementById('totalRefunds').textContent = '$' + (stats.total_refunds || 0).toFixed(2);
+      document.getElementById('damagedItems').textContent = stats.damaged_count || 0;
+      
+      const tbody = document.querySelector('#returnsTable tbody');
+      if (!returns.length) { tbody.innerHTML = '<tr><td colspan="7" class="empty">No returns found</td></tr>'; return; }
+      tbody.innerHTML = returns.map(r => `
+        <tr>
+          <td>#${r.id}</td><td>${r.employee_name}</td><td>${r.items.length} items</td>
+          <td>$${r.refund_amount.toFixed(2)}</td><td>${r.reason}</td>
+          <td><span class="badge" style="background:${r.status === 'circulated' ? '#4ade80' : '#ef4444'};color:${r.status === 'circulated' ? '#000' : '#fff'}">${r.status}</span></td>
+          <td>${new Date(r.created_at).toLocaleString()}</td>
+        </tr>
+      `).join('');
+    }
+
     async function loadSettings() {
       const settings = await apiCall('/settings');
       document.getElementById('storeName').value = settings.store_name || 'My POS Store';
@@ -351,7 +412,8 @@
     document.querySelectorAll('.nav-item')[1].addEventListener('click', loadEmployees);
     document.querySelectorAll('.nav-item')[2].addEventListener('click', loadProducts);
     document.querySelectorAll('.nav-item')[3].addEventListener('click', loadTransactions);
-    document.querySelectorAll('.nav-item')[4].addEventListener('click', loadSettings);
+    document.querySelectorAll('.nav-item')[4].addEventListener('click', loadReturns);
+    document.querySelectorAll('.nav-item')[5].addEventListener('click', loadSettings);
     loadDashboard();
   </script>
 </body>

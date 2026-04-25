@@ -116,6 +116,7 @@
       </div>
       <button class="checkout-btn" onclick="openPayment()">Checkout</button>
       <button class="clear-btn" onclick="clearCart()">Clear Cart</button>
+      <button class="clear-btn" onclick="openReturn()" style="background:#9333ea;margin-top:0.5rem">↩ Process Return</button>
     </div>
   </div>
 
@@ -215,6 +216,40 @@
         <button class="btn btn-secondary" onclick="closeEditProduct()">Cancel</button>
         <button class="btn btn-primary" onclick="updateProduct()">Update</button>
         <button class="btn btn-danger" onclick="deleteProduct()" style="background:#ef4444;color:#fff">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="payment-modal" id="returnModal">
+    <div class="modal-content" style="width:400px;max-height:80vh;overflow-y:auto">
+      <h3>↩ Process Return</h3>
+      <div id="returnItems">
+        <p style="color:#888;text-align:center;padding:2rem">Scan or select items to return...</p>
+      </div>
+      <div class="form-group" style="margin-top:1rem">
+        <label>Return Reason</label>
+        <select id="returnReason" style="width:100%;padding:12px;background:#0f0f23;border:1px solid #333;border-radius:8px;color:#fff;font-size:0.95rem">
+          <option value="">Select reason...</option>
+          <option value="Defective">Defective/Damaged</option>
+          <option value="Wrong Item">Wrong Item</option>
+          <option value="Changed Mind">Changed Mind</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Return Status</label>
+        <select id="returnStatus" style="width:100%;padding:12px;background:#0f0f23;border:1px solid #333;border-radius:8px;color:#fff;font-size:0.95rem">
+          <option value="circulated">Return to Stock (Circulated)</option>
+          <option value="damaged">Damaged - For Inspection</option>
+        </select>
+      </div>
+      <div style="background:#0f0f23;padding:1rem;border-radius:8px;margin:1rem 0">
+        <div style="display:flex;justify-content:space-between;color:#888"><span>Refund Amount:</span><span id="returnTotal" style="color:#4ade80;font-weight:bold">$0.00</span></div>
+      </div>
+      <div class="modal-buttons">
+        <button class="btn btn-secondary" onclick="closeReturn()">Cancel</button>
+        <button class="btn" style="background:#9333ea;color:#fff" onclick="addReturnItem()">+ Add Item</button>
+        <button class="btn btn-primary" onclick="submitReturn()">Process Return</button>
       </div>
     </div>
   </div>
@@ -480,7 +515,8 @@
           headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
           body: JSON.stringify(data)
         });
-        if (!res.ok) throw new Error('Failed to save product');
+        const result = await res.json();
+        if (!res.ok) throw new Error(result.error || 'Failed to save product');
         products.push({ ...data, id: products.length + 1, is_active: 1 });
         closeAddProduct();
         renderCategories();
@@ -552,6 +588,113 @@
         renderProducts();
         alert('Product deleted!');
       } catch (err) { alert(err.message); }
+    }
+
+    let returnItems = [];
+    
+    function openReturn() {
+      returnItems = [];
+      document.getElementById('returnReason').value = '';
+      document.getElementById('returnStatus').value = 'circulated';
+      renderReturnItems();
+      document.getElementById('returnModal').classList.add('show');
+    }
+    
+    function closeReturn() {
+      document.getElementById('returnModal').classList.remove('show');
+    }
+    
+    function renderReturnItems() {
+      if (returnItems.length === 0) {
+        document.getElementById('returnItems').innerHTML = '<p style="color:#888;text-align:center;padding:2rem">Click "+ Add Item" to add return items</p>';
+      } else {
+        document.getElementById('returnItems').innerHTML = returnItems.map((item, idx) => `
+          <div style="display:flex;align-items:center;padding:0.75rem;background:#0f0f23;border-radius:8px;margin-bottom:0.5rem">
+            <div style="flex:1">
+              <div style="font-weight:500">${item.name}</div>
+              <div style="color:#888;font-size:0.85rem">$${item.price.toFixed(2)} each</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:0.5rem">
+              <button onclick="adjustReturnQty(${idx}, -1)" style="width:28px;height:28px;background:#333;border:none;border-radius:6px;color:#fff;cursor:pointer">-</button>
+              <span style="min-width:20px;text-align:center">${item.quantity}</span>
+              <button onclick="adjustReturnQty(${idx}, 1)" style="width:28px;height:28px;background:#333;border:none;border-radius:6px;color:#fff;cursor:pointer">+</button>
+              <button onclick="removeReturnItem(${idx})" style="background:none;border:none;color:#e94560;cursor:pointer;font-size:1.2rem;margin-left:0.5rem">×</button>
+            </div>
+          </div>
+        `).join('');
+      }
+      const total = returnItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+      document.getElementById('returnTotal').textContent = '$' + total.toFixed(2);
+    }
+    
+    function adjustReturnQty(idx, change) {
+      returnItems[idx].quantity += change;
+      if (returnItems[idx].quantity <= 0) returnItems.splice(idx, 1);
+      renderReturnItems();
+    }
+    
+    function removeReturnItem(idx) {
+      returnItems.splice(idx, 1);
+      renderReturnItems();
+    }
+    
+    function addReturnItem() {
+      const search = prompt('Enter product barcode or name:');
+      if (!search) return;
+      
+      const product = products.find(p => 
+        p.barcode === search || p.name.toLowerCase().includes(search.toLowerCase())
+      );
+      
+      if (!product) {
+        alert('Product not found');
+        return;
+      }
+      
+      const qty = parseInt(prompt(`Enter quantity to return (max ${product.stock || 1}):`, '1')) || 1;
+      if (qty <= 0) return;
+      
+      const existing = returnItems.find(r => r.product_id === product.id);
+      if (existing) {
+        existing.quantity += qty;
+      } else {
+        returnItems.push({
+          product_id: product.id,
+          name: product.name,
+          price: product.price,
+          quantity: qty
+        });
+      }
+      renderReturnItems();
+    }
+    
+    async function submitReturn() {
+      if (returnItems.length === 0) return alert('No items to return');
+      
+      const reason = document.getElementById('returnReason').value;
+      if (!reason) return alert('Please select a return reason');
+      
+      const status = document.getElementById('returnStatus').value;
+      
+      try {
+        const res = await fetch(`${API_URL}/returns`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            items: returnItems,
+            reason,
+            status
+          })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        
+        alert(`Return processed! Refund: $${data.refund_amount.toFixed(2)}\nStatus: ${status === 'circulated' ? 'Returned to stock' : 'Sent for inspection'}`);
+        closeReturn();
+        refreshProducts();
+      } catch (err) {
+        alert(err.message);
+      }
     }
 
     init();

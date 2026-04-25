@@ -6,6 +6,7 @@ import { initializeDatabase } from './database.js';
 import employeesRoutes from './routes/employees.js';
 import productsRoutes from './routes/products.js';
 import transactionsRoutes from './routes/transactions.js';
+import returnsRoutes from './routes/returns.js';
 import settingsRoutes from './routes/settings.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -33,6 +34,7 @@ app.get('/', (req, res) => {
 app.use('/api/employees', employeesRoutes);
 app.use('/api/products', productsRoutes);
 app.use('/api/transactions', transactionsRoutes);
+app.use('/api/returns', returnsRoutes);
 app.use('/api/settings', settingsRoutes);
 
 app.listen(PORT, () => {
