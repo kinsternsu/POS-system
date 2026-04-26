@@ -51,12 +51,18 @@
     .search-bar { display: flex; gap: 1rem; margin-bottom: 1rem; }
     .search-bar input { flex: 1; padding: 10px 16px; background: #1a1a2e; border: 1px solid #333; border-radius: 8px; color: #fff; }
     .empty { text-align: center; padding: 3rem; color: #666; }
+    .po-item-row { display: flex; gap: 0.5rem; margin-bottom: 0.5rem; }
+    .po-item-row select, .po-item-row input { padding: 8px; background: #0f0f23; border: 1px solid #333; border-radius: 6px; color: #fff; }
   </style>
 </head>
 <body>
   <div class="sidebar">
     <h2>POS Admin</h2>
     <div class="nav-item active" data-section="dashboard">Dashboard</div>
+    <div class="nav-item" data-section="reorder">Reorder Alerts</div>
+    <div class="nav-item" data-section="suppliers">Suppliers</div>
+    <div class="nav-item" data-section="purchase-orders">Purchase Orders</div>
+    <div class="nav-item" data-section="grv">Goods Received</div>
     <div class="nav-item" data-section="employees">Employees</div>
     <div class="nav-item" data-section="products">Products</div>
     <div class="nav-item" data-section="transactions">Transactions</div>
@@ -69,6 +75,84 @@
       <a href="#" id="logoutLink" style="color:#aaa;text-decoration:underline;cursor:pointer">Logout</a>
     </div>
   </div>
+
+    <div class="section" id="section-reorder">
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-bottom:1.5rem">
+        <div class="stat-card">
+          <h3>Low Stock Items</h3>
+          <div class="value orange" id="lowStockCount">0</div>
+        </div>
+        <div class="stat-card">
+          <h3>Critical (Out of Stock)</h3>
+          <div class="value" style="color:#ef4444" id="criticalStockCount">0</div>
+        </div>
+        <div class="stat-card">
+          <h3>Pending POs</h3>
+          <div class="value blue" id="pendingPOCount">0</div>
+        </div>
+      </div>
+      <div class="search-bar">
+        <button class="btn btn-primary" onclick="triggerAutoReorder()">Auto Reorder Now</button>
+        <button class="btn btn-secondary" onclick="loadReorderAlerts()">Refresh</button>
+      </div>
+      <table id="reorderTable">
+        <thead>
+          <tr><th>Product</th><th>Current Stock</th><th>Reorder Point</th><th>Order Qty</th><th>Supplier</th><th>Alert Level</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div class="section" id="section-suppliers">
+      <div class="search-bar">
+        <input type="text" id="supplierSearch" placeholder="Search suppliers..." oninput="loadSuppliers()">
+        <button class="btn btn-primary" onclick="openSupplierModal()">+ Add Supplier</button>
+      </div>
+      <table id="suppliersTable">
+        <thead>
+          <tr><th>Name</th><th>Contact Person</th><th>Email</th><th>Phone</th><th>Actions</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div class="section" id="section-purchase-orders">
+      <div class="search-bar">
+        <select id="poStatusFilter" onchange="loadPurchaseOrders()" style="padding:10px;background:#1a1a2e;border:1px solid #333;border-radius:8px;color:#fff">
+          <option value="">All Status</option>
+          <option value="pending">Pending</option>
+          <option value="ordered">Ordered</option>
+          <option value="partial">Partial</option>
+          <option value="received">Received</option>
+        </select>
+        <button class="btn btn-primary" onclick="openPOModal()">+ Create PO</button>
+      </div>
+      <table id="poTable">
+        <thead>
+          <tr><th>PO Number</th><th>Supplier</th><th>Total</th><th>Status</th><th>Expected Date</th><th>Created</th><th>Actions</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div class="section" id="section-grv">
+      <div class="search-bar">
+        <select id="grvStatusFilter" onchange="loadGRVs()" style="padding:10px;background:#1a1a2e;border:1px solid #333;border-radius:8px;color:#fff">
+          <option value="">All Status</option>
+          <option value="pending">Pending</option>
+          <option value="completed">Completed</option>
+        </select>
+        <button class="btn btn-primary" onclick="openGRVModal()">+ Create GRV</button>
+      </div>
+      <table id="grvTable">
+        <thead>
+          <tr><th>GRV Number</th><th>PO Number</th><th>Received By</th><th>Status</th><th>Date</th><th>Actions</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
   <div class="main">
     <div class="header">
       <h1>Dashboard</h1>
@@ -122,7 +206,7 @@
       </div>
       <table id="productsTable">
         <thead>
-          <tr><th>Name</th><th>SKU</th><th>Price</th><th>Stock</th><th>Category</th><th>Actions</th></tr>
+          <tr><th>Name</th><th>SKU</th><th>Price</th><th>Stock</th><th>Reorder Point</th><th>Supplier</th><th>Actions</th></tr>
         </thead>
         <tbody></tbody>
       </table>
@@ -189,6 +273,88 @@
           <input type="text" id="currency">
         </div>
         <button class="btn btn-primary" onclick="saveSettings()">Save Settings</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="supplierModal">
+    <div class="modal-content">
+      <h3 id="supplierModalTitle">Add Supplier</h3>
+      <input type="hidden" id="supplierId">
+      <div class="form-group">
+        <label>Name *</label>
+        <input type="text" id="supplierName">
+      </div>
+      <div class="form-group">
+        <label>Contact Person</label>
+        <input type="text" id="supplierContact">
+      </div>
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" id="supplierEmail">
+      </div>
+      <div class="form-group">
+        <label>Phone</label>
+        <input type="text" id="supplierPhone">
+      </div>
+      <div class="form-group">
+        <label>Address</label>
+        <input type="text" id="supplierAddress">
+      </div>
+      <div class="modal-buttons">
+        <button class="btn btn-secondary" onclick="closeSupplierModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="saveSupplier()">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="poModal">
+    <div class="modal-content" style="width:600px">
+      <h3>Create Purchase Order</h3>
+      <div class="form-group">
+        <label>Supplier *</label>
+        <select id="poSupplier"></select>
+      </div>
+      <div class="form-group">
+        <label>Expected Date</label>
+        <input type="date" id="poExpectedDate">
+      </div>
+      <div class="form-group">
+        <label>Notes</label>
+        <input type="text" id="poNotes">
+      </div>
+      <div class="form-group">
+        <label>Items</label>
+        <div id="poItemsContainer"></div>
+        <button class="btn btn-sm btn-secondary" onclick="addPOItem()">+ Add Item</button>
+      </div>
+      <div class="modal-buttons">
+        <button class="btn btn-secondary" onclick="closePOModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="savePO()">Create PO</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="productModal"></div>
+
+  <div class="modal" id="grvModal">
+    <div class="modal-content" style="width:600px">
+      <h3>Create Goods Received Voucher</h3>
+      <div class="form-group">
+        <label>Purchase Order *</label>
+        <select id="grvPO"></select>
+      </div>
+      <div class="form-group">
+        <label>Notes</label>
+        <input type="text" id="grvNotes">
+      </div>
+      <div class="form-group">
+        <label>Items to Receive</label>
+        <div id="grvItemsContainer"></div>
+      </div>
+      <div class="modal-buttons">
+        <button class="btn btn-secondary" onclick="closeGRVModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="saveGRV()">Receive Items</button>
       </div>
     </div>
   </div>
@@ -310,13 +476,125 @@
     async function loadProducts() {
       const products = await apiCall('/products');
       const tbody = document.querySelector('#productsTable tbody');
-      if (!products.length) { tbody.innerHTML = '<tr><td colspan="6" class="empty">No products found</td></tr>'; return; }
+      if (!products.length) { tbody.innerHTML = '<tr><td colspan="7" class="empty">No products found</td></tr>'; return; }
       tbody.innerHTML = products.map(p => `
         <tr>
-          <td>${p.name}</td><td>${p.sku || '-'}</td><td>$${p.price.toFixed(2)}</td><td>${p.stock || 0}</td><td>${p.category || '-'}</td>
+          <td>${p.name}</td><td>${p.sku || '-'}</td><td>$${p.price.toFixed(2)}</td><td>${p.stock || 0}</td><td>${p.reorder_point || 0}</td><td>${p.supplier_name || '-'}</td>
           <td><button class="btn btn-sm btn-secondary" onclick="editProduct(${p.id})">Edit</button></td>
         </tr>
       `).join('');
+    }
+
+    async function addProduct() {
+      const suppliers = await apiCall('/suppliers');
+      const modal = document.getElementById('productModal');
+      modal.classList.add('show');
+      modal.innerHTML = `
+        <div class="modal-content" style="width:500px">
+          <h3>Add Product</h3>
+          <input type="hidden" id="editProductId" value="">
+          <div class="form-group"><label>Name *</label><input type="text" id="editProdName" value=""></div>
+          <div class="form-group"><label>SKU</label><input type="text" id="editProdSku" value=""></div>
+          <div class="form-group"><label>Barcode</label><input type="text" id="editProdBarcode" value=""></div>
+          <div class="form-group"><label>Price *</label><input type="number" step="0.01" id="editProdPrice" value="0"></div>
+          <div class="form-group"><label>Cost Price</label><input type="number" step="0.01" id="editProdCost" value="0"></div>
+          <div class="form-group"><label>Stock</label><input type="number" id="editProdStock" value="0"></div>
+          <div class="form-group"><label>Category</label><input type="text" id="editProdCategory" value=""></div>
+          <div class="form-group"><label>Supplier</label>
+            <select id="editProdSupplier" style="width:100%;padding:10px;background:#0f0f23;border:1px solid #333;border-radius:6px;color:#fff">
+              <option value="">No Supplier</option>
+              ${suppliers.map(s => `<option value="${s.id}">${s.name}</option>`).join('')}
+            </select>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+            <div class="form-group"><label>Reorder Point</label><input type="number" id="editProdReorderPoint" value="0"></div>
+            <div class="form-group"><label>Reorder Quantity</label><input type="number" id="editProdReorderQty" value="0"></div>
+          </div>
+          <div class="modal-buttons">
+            <button class="btn btn-secondary" onclick="document.getElementById('productModal').classList.remove('show')">Cancel</button>
+            <button class="btn btn-primary" onclick="saveNewProduct()">Save</button>
+          </div>
+        </div>
+      `;
+    }
+
+    async function saveNewProduct() {
+      const data = {
+        name: document.getElementById('editProdName').value,
+        sku: document.getElementById('editProdSku').value,
+        barcode: document.getElementById('editProdBarcode').value,
+        price: parseFloat(document.getElementById('editProdPrice').value) || 0,
+        cost_price: parseFloat(document.getElementById('editProdCost').value) || 0,
+        stock: parseInt(document.getElementById('editProdStock').value) || 0,
+        category: document.getElementById('editProdCategory').value,
+        supplier_id: document.getElementById('editProdSupplier').value || null,
+        reorder_point: parseInt(document.getElementById('editProdReorderPoint').value) || 0,
+        reorder_quantity: parseInt(document.getElementById('editProdReorderQty').value) || 0
+      };
+      
+      if (!data.name || !data.price) return alert('Name and Price are required');
+      
+      await apiCall('/products', { method: 'POST', body: JSON.stringify(data) });
+      document.getElementById('productModal').classList.remove('show');
+      loadProducts();
+    }
+
+    async function editProduct(id) {
+      const products = await apiCall('/products');
+      const p = products.find(x => x.id === id);
+      if (!p) return;
+      
+      const suppliers = await apiCall('/suppliers');
+      
+      const modal = document.getElementById('productModal');
+      modal.classList.add('show');
+      modal.innerHTML = `
+        <div class="modal-content" style="width:500px">
+          <h3>Edit Product</h3>
+          <input type="hidden" id="editProductId" value="${p.id}">
+          <div class="form-group"><label>Name</label><input type="text" id="editProdName" value="${p.name}"></div>
+          <div class="form-group"><label>SKU</label><input type="text" id="editProdSku" value="${p.sku || ''}"></div>
+          <div class="form-group"><label>Barcode</label><input type="text" id="editProdBarcode" value="${p.barcode || ''}"></div>
+          <div class="form-group"><label>Price</label><input type="number" step="0.01" id="editProdPrice" value="${p.price}"></div>
+          <div class="form-group"><label>Cost Price</label><input type="number" step="0.01" id="editProdCost" value="${p.cost_price || 0}"></div>
+          <div class="form-group"><label>Stock</label><input type="number" id="editProdStock" value="${p.stock || 0}"></div>
+          <div class="form-group"><label>Category</label><input type="text" id="editProdCategory" value="${p.category || ''}"></div>
+          <div class="form-group"><label>Supplier</label>
+            <select id="editProdSupplier" style="width:100%;padding:10px;background:#0f0f23;border:1px solid #333;border-radius:6px;color:#fff">
+              <option value="">No Supplier</option>
+              ${suppliers.map(s => `<option value="${s.id}" ${p.supplier_id == s.id ? 'selected' : ''}>${s.name}</option>`).join('')}
+            </select>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+            <div class="form-group"><label>Reorder Point</label><input type="number" id="editProdReorderPoint" value="${p.reorder_point || 0}"></div>
+            <div class="form-group"><label>Reorder Quantity</label><input type="number" id="editProdReorderQty" value="${p.reorder_quantity || 0}"></div>
+          </div>
+          <div class="modal-buttons">
+            <button class="btn btn-secondary" onclick="document.getElementById('productModal').classList.remove('show')">Cancel</button>
+            <button class="btn btn-primary" onclick="saveProduct()">Save</button>
+          </div>
+        </div>
+      `;
+    }
+
+    async function saveProduct() {
+      const id = document.getElementById('editProductId').value;
+      const data = {
+        name: document.getElementById('editProdName').value,
+        sku: document.getElementById('editProdSku').value,
+        barcode: document.getElementById('editProdBarcode').value,
+        price: parseFloat(document.getElementById('editProdPrice').value),
+        cost_price: parseFloat(document.getElementById('editProdCost').value) || 0,
+        stock: parseInt(document.getElementById('editProdStock').value) || 0,
+        category: document.getElementById('editProdCategory').value,
+        supplier_id: document.getElementById('editProdSupplier').value || null,
+        reorder_point: parseInt(document.getElementById('editProdReorderPoint').value) || 0,
+        reorder_quantity: parseInt(document.getElementById('editProdReorderQty').value) || 0
+      };
+      
+      await apiCall(`/products/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+      document.getElementById('productModal').classList.remove('show');
+      loadProducts();
     }
 
     function filterProducts() {
@@ -409,11 +687,277 @@
       window.location.href = 'login.html';
     }
 
-    document.querySelectorAll('.nav-item')[1].addEventListener('click', loadEmployees);
-    document.querySelectorAll('.nav-item')[2].addEventListener('click', loadProducts);
-    document.querySelectorAll('.nav-item')[3].addEventListener('click', loadTransactions);
-    document.querySelectorAll('.nav-item')[4].addEventListener('click', loadReturns);
-    document.querySelectorAll('.nav-item')[5].addEventListener('click', loadSettings);
+    async function loadReorderAlerts() {
+      const [alerts, pos] = await Promise.all([
+        apiCall('/reorder/alerts'),
+        apiCall('/purchase-orders?status=pending')
+      ]);
+      const critical = alerts.filter(a => a.alert_level === 'critical').length;
+      document.getElementById('lowStockCount').textContent = alerts.length;
+      document.getElementById('criticalStockCount').textContent = critical;
+      document.getElementById('pendingPOCount').textContent = pos.length;
+      
+      const tbody = document.querySelector('#reorderTable tbody');
+      if (!alerts.length) { tbody.innerHTML = '<tr><td colspan="6" class="empty">No low stock items</td></tr>'; return; }
+      tbody.innerHTML = alerts.map(a => `
+        <tr>
+          <td>${a.name}</td>
+          <td style="color:${a.stock === 0 ? '#ef4444' : '#fb923c'}">${a.stock}</td>
+          <td>${a.reorder_point}</td>
+          <td>${a.reorder_quantity || 10}</td>
+          <td>${a.supplier_name || 'N/A'}</td>
+          <td><span class="badge ${a.alert_level === 'critical' ? 'admin' : 'cashier'}">${a.alert_level.toUpperCase()}</span></td>
+        </tr>
+      `).join('');
+    }
+
+    async function triggerAutoReorder() {
+      if (!confirm('Auto-create purchase orders for low stock items?')) return;
+      const result = await apiCall('/reorder/auto-reorder', { method: 'POST' });
+      alert(`Created ${result.created} purchase order(s)`);
+      loadReorderAlerts();
+      loadPurchaseOrders();
+    }
+
+    async function loadSuppliers() {
+      const suppliers = await apiCall('/suppliers');
+      const tbody = document.querySelector('#suppliersTable tbody');
+      if (!suppliers.length) { tbody.innerHTML = '<tr><td colspan="5" class="empty">No suppliers found</td></tr>'; return; }
+      tbody.innerHTML = suppliers.map(s => `
+        <tr>
+          <td>${s.name}</td>
+          <td>${s.contact_person || '-'}</td>
+          <td>${s.email || '-'}</td>
+          <td>${s.phone || '-'}</td>
+          <td>
+            <button class="btn btn-sm btn-secondary" onclick="editSupplier(${s.id}, '${s.name}', '${s.contact_person || ''}', '${s.email || ''}', '${s.phone || ''}', '${s.address || ''}')">Edit</button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function openSupplierModal(id = null) {
+      document.getElementById('supplierModal').classList.add('show');
+      document.getElementById('supplierModalTitle').textContent = id ? 'Edit Supplier' : 'Add Supplier';
+      document.getElementById('supplierId').value = id || '';
+      if (!id) {
+        document.getElementById('supplierName').value = '';
+        document.getElementById('supplierContact').value = '';
+        document.getElementById('supplierEmail').value = '';
+        document.getElementById('supplierPhone').value = '';
+        document.getElementById('supplierAddress').value = '';
+      }
+    }
+
+    function closeSupplierModal() {
+      document.getElementById('supplierModal').classList.remove('show');
+    }
+
+    async function saveSupplier() {
+      const id = document.getElementById('supplierId').value;
+      const data = {
+        name: document.getElementById('supplierName').value,
+        contact_person: document.getElementById('supplierContact').value,
+        email: document.getElementById('supplierEmail').value,
+        phone: document.getElementById('supplierPhone').value,
+        address: document.getElementById('supplierAddress').value
+      };
+      if (!data.name) return alert('Name is required');
+      
+      if (id) {
+        await apiCall(`/suppliers/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+      } else {
+        await apiCall('/suppliers', { method: 'POST', body: JSON.stringify(data) });
+      }
+      closeSupplierModal();
+      loadSuppliers();
+    }
+
+    function editSupplier(id, name, contact, email, phone, address) {
+      openSupplierModal(id);
+      document.getElementById('supplierName').value = name;
+      document.getElementById('supplierContact').value = contact;
+      document.getElementById('supplierEmail').value = email;
+      document.getElementById('supplierPhone').value = phone;
+      document.getElementById('supplierAddress').value = address;
+    }
+
+    async function loadPurchaseOrders() {
+      const status = document.getElementById('poStatusFilter').value;
+      const orders = await apiCall(`/purchase-orders${status ? '?status=' + status : ''}`);
+      const tbody = document.querySelector('#poTable tbody');
+      if (!orders.length) { tbody.innerHTML = '<tr><td colspan="7" class="empty">No purchase orders found</td></tr>'; return; }
+      tbody.innerHTML = orders.map(o => `
+        <tr>
+          <td>${o.po_number}</td>
+          <td>${o.supplier_name}</td>
+          <td>$${(o.total_amount || 0).toFixed(2)}</td>
+          <td><span class="badge ${o.status === 'received' ? 'cashier' : o.status === 'pending' ? 'admin' : ''}">${o.status}</span></td>
+          <td>${o.expected_date || '-'}</td>
+          <td>${new Date(o.created_at).toLocaleDateString()}</td>
+          <td>
+            ${o.status !== 'received' ? `<button class="btn btn-sm btn-secondary" onclick="updatePOStatus(${o.id}, '${o.status === 'pending' ? 'ordered' : 'received'}')">${o.status === 'pending' ? 'Mark Ordered' : 'Mark Received'}</button>` : ''}
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    async function updatePOStatus(id, status) {
+      await apiCall(`/purchase-orders/${id}`, { method: 'PUT', body: JSON.stringify({ status }) });
+      loadPurchaseOrders();
+      loadReorderAlerts();
+    }
+
+    async function openPOModal() {
+      const suppliers = await apiCall('/suppliers');
+      const products = await apiCall('/products');
+      window._poProducts = products;
+      
+      const sel = document.getElementById('poSupplier');
+      sel.innerHTML = '<option value="">Select Supplier</option>' + suppliers.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+      
+      document.getElementById('poItemsContainer').innerHTML = '';
+      addPOItem();
+      document.getElementById('poModal').classList.add('show');
+    }
+
+    function closePOModal() {
+      document.getElementById('poModal').classList.remove('show');
+    }
+
+    function addPOItem() {
+      const container = document.getElementById('poItemsContainer');
+      const products = window._poProducts || [];
+      const div = document.createElement('div');
+      div.className = 'form-group';
+      div.style.display = 'flex';
+      div.style.gap = '0.5rem';
+      div.innerHTML = `
+        <select class="po-product" style="flex:2;padding:10px;background:#0f0f23;border:1px solid #333;border-radius:6px;color:#fff">
+          <option value="">Select Product</option>
+          ${products.map(p => `<option value="${p.id}" data-cost="${p.cost_price || 0}">${p.name} (Stock: ${p.stock})</option>`).join('')}
+        </select>
+        <input type="number" class="po-qty" placeholder="Qty" style="width:80px;padding:10px;background:#0f0f23;border:1px solid #333;border-radius:6px;color:#fff" value="1">
+        <input type="number" class="po-cost" placeholder="Unit Cost" style="width:100px;padding:10px;background:#0f0f23;border:1px solid #333;border-radius:6px;color:#fff">
+        <button class="btn btn-sm btn-secondary" onclick="this.parentElement.remove()">X</button>
+      `;
+      container.appendChild(div);
+    }
+
+    async function savePO() {
+      const supplier_id = document.getElementById('poSupplier').value;
+      if (!supplier_id) return alert('Please select a supplier');
+      
+      const items = [];
+      document.querySelectorAll('#poItemsContainer > div').forEach(div => {
+        const product_id = div.querySelector('.po-product').value;
+        const quantity = parseInt(div.querySelector('.po-qty').value);
+        const unit_cost = parseFloat(div.querySelector('.po-cost').value);
+        if (product_id && quantity && unit_cost) {
+          items.push({ product_id, quantity, unit_cost });
+        }
+      });
+      
+      if (!items.length) return alert('Please add at least one item');
+      
+      await apiCall('/purchase-orders', {
+        method: 'POST',
+        body: JSON.stringify({
+          supplier_id,
+          expected_date: document.getElementById('poExpectedDate').value,
+          notes: document.getElementById('poNotes').value,
+          items
+        })
+      });
+      
+      closePOModal();
+      loadPurchaseOrders();
+    }
+
+    async function loadGRVs() {
+      const status = document.getElementById('grvStatusFilter').value;
+      const grvs = await apiCall(`/grv${status ? '?status=' + status : ''}`);
+      const tbody = document.querySelector('#grvTable tbody');
+      if (!grvs.length) { tbody.innerHTML = '<tr><td colspan="6" class="empty">No GRVs found</td></tr>'; return; }
+      tbody.innerHTML = grvs.map(g => `
+        <tr>
+          <td>${g.grv_number}</td>
+          <td>${g.po_number}</td>
+          <td>${g.received_by_name || '-'}</td>
+          <td><span class="badge ${g.status === 'completed' ? 'cashier' : 'admin'}">${g.status}</span></td>
+          <td>${new Date(g.created_at).toLocaleDateString()}</td>
+          <td>
+            <button class="btn btn-sm btn-secondary" onclick="viewGRV(${g.id})">View</button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    async function openGRVModal() {
+      const pos = await apiCall('/purchase-orders?status=pending');
+      const sel = document.getElementById('grvPO');
+      sel.innerHTML = '<option value="">Select Purchase Order</option>' + pos.map(p => `<option value="${p.id}">${p.po_number} - ${p.supplier_name}</option>`).join('');
+      document.getElementById('grvItemsContainer').innerHTML = '';
+      document.getElementById('grvModal').classList.add('show');
+    }
+
+    function closeGRVModal() {
+      document.getElementById('grvModal').classList.remove('show');
+    }
+
+    document.getElementById('grvPO').addEventListener('change', async function() {
+      if (!this.value) return;
+      const po = await apiCall(`/purchase-orders/${this.value}`);
+      const container = document.getElementById('grvItemsContainer');
+      container.innerHTML = po.items.map(item => `
+        <div class="form-group" style="display:flex;gap:0.5rem;align-items:center">
+          <label style="flex:2">${item.product_name}</label>
+          <span style="flex:1">Ordered: ${item.quantity}, Received: ${item.received_quantity}</span>
+          <input type="hidden" class="grv-product-id" value="${item.product_id}">
+          <input type="number" class="grv-qty" placeholder="Qty" min="0" max="${item.quantity - item.received_quantity}" style="width:80px;padding:10px;background:#0f0f23;border:1px solid #333;border-radius:6px;color:#fff" value="${item.quantity - item.received_quantity}">
+        </div>
+      `).join('');
+    });
+
+    async function saveGRV() {
+      const purchase_order_id = document.getElementById('grvPO').value;
+      if (!purchase_order_id) return alert('Please select a purchase order');
+      
+      const items = [];
+      document.querySelectorAll('#grvItemsContainer > div').forEach(div => {
+        const product_id = div.querySelector('.grv-product-id').value;
+        const quantity = parseInt(div.querySelector('.grv-qty').value);
+        if (product_id && quantity > 0) {
+          items.push({ product_id, quantity });
+        }
+      });
+      
+      if (!items.length) return alert('Please receive at least one item');
+      
+      await apiCall('/grv', {
+        method: 'POST',
+        body: JSON.stringify({
+          purchase_order_id,
+          notes: document.getElementById('grvNotes').value,
+          items
+        })
+      });
+      
+      closeGRVModal();
+      loadGRVs();
+      loadPurchaseOrders();
+      loadReorderAlerts();
+    }
+
+    document.querySelectorAll('.nav-item')[1].addEventListener('click', loadReorderAlerts);
+    document.querySelectorAll('.nav-item')[2].addEventListener('click', loadSuppliers);
+    document.querySelectorAll('.nav-item')[3].addEventListener('click', loadPurchaseOrders);
+    document.querySelectorAll('.nav-item')[4].addEventListener('click', loadGRVs);
+    document.querySelectorAll('.nav-item')[5].addEventListener('click', loadEmployees);
+    document.querySelectorAll('.nav-item')[6].addEventListener('click', loadProducts);
+    document.querySelectorAll('.nav-item')[7].addEventListener('click', loadTransactions);
+    document.querySelectorAll('.nav-item')[8].addEventListener('click', loadReturns);
+    document.querySelectorAll('.nav-item')[9].addEventListener('click', loadSettings);
     loadDashboard();
   </script>
 </body>

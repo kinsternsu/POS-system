@@ -6,7 +6,13 @@ const router = express.Router();
 
 router.get('/', authenticateToken, (req, res) => {
   try {
-    const products = db.prepare('SELECT * FROM products WHERE is_active = 1 ORDER BY name').all();
+    const products = db.prepare(`
+      SELECT p.*, s.name as supplier_name 
+      FROM products p 
+      LEFT JOIN suppliers s ON p.supplier_id = s.id
+      WHERE p.is_active = 1 
+      ORDER BY p.name
+    `).all();
     console.log('GET /products - found:', products.length);
     res.json(products);
   } catch (err) {
@@ -30,7 +36,7 @@ router.get('/search', authenticateToken, (req, res) => {
 
 router.post('/', authenticateToken, requireAdmin, (req, res) => {
   try {
-    const { name, sku, barcode, price, cost_price, stock, category, image_url } = req.body;
+    const { name, sku, barcode, price, cost_price, stock, category, image_url, reorder_point, reorder_quantity, supplier_id } = req.body;
     console.log('POST /products - adding:', name, price);
     
     if (!name || !price) {
@@ -38,11 +44,11 @@ router.post('/', authenticateToken, requireAdmin, (req, res) => {
     }
 
     const stmt = db.prepare(`
-      INSERT INTO products (name, sku, barcode, price, cost_price, stock, category, image_url)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO products (name, sku, barcode, price, cost_price, stock, category, image_url, reorder_point, reorder_quantity, supplier_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     
-    const result = stmt.run(name, sku || null, barcode || null, price, cost_price || 0, stock || 0, category || null, image_url || null);
+    const result = stmt.run(name, sku || null, barcode || null, price, cost_price || 0, stock || 0, category || null, image_url || null, reorder_point || 0, reorder_quantity || 0, supplier_id || null);
     console.log('Product added with ID:', result.lastInsertRowid);
     
     res.json({ id: result.lastInsertRowid, name, price });
@@ -57,7 +63,7 @@ router.post('/', authenticateToken, requireAdmin, (req, res) => {
 router.put('/:id', authenticateToken, requireAdmin, (req, res) => {
   try {
     const { id } = req.params;
-    const { name, sku, barcode, price, cost_price, stock, category, image_url, is_active } = req.body;
+    const { name, sku, barcode, price, cost_price, stock, category, image_url, is_active, reorder_point, reorder_quantity, supplier_id } = req.body;
     
     const updates = [];
     const params = [];
@@ -71,6 +77,9 @@ router.put('/:id', authenticateToken, requireAdmin, (req, res) => {
     if (category !== undefined) { updates.push('category = ?'); params.push(category); }
     if (image_url !== undefined) { updates.push('image_url = ?'); params.push(image_url); }
     if (is_active !== undefined) { updates.push('is_active = ?'); params.push(is_active ? 1 : 0); }
+    if (reorder_point !== undefined) { updates.push('reorder_point = ?'); params.push(reorder_point); }
+    if (reorder_quantity !== undefined) { updates.push('reorder_quantity = ?'); params.push(reorder_quantity); }
+    if (supplier_id !== undefined) { updates.push('supplier_id = ?'); params.push(supplier_id); }
     
     if (updates.length === 0) {
       return res.status(400).json({ error: 'No fields to update' });

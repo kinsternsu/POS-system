@@ -1,10 +1,8 @@
-Real-Time Perpetual Tracking
-The engine uses perpetual inventory management, meaning it updates stock levels instantly after every action: 
-Business News Daily
-Business News Daily
+Automated Reordering Logic
+A robust engine removes human guesswork by using automated reorder points: 
+Rural Mutual Insurance Company
+Rural Mutual Insurance Company
  +1
-Sales: The moment a barcode is scanned and a sale is finalized, the system automatically subtracts the item from your digital "on-hand" count. 
-SalesPlay POS
-SalesPlay POS
- +1
-Returns: When a customer brings an item back, the engine adds it back into circulation or moves it to a "damaged" status for inspection. :create an action plan to implement these features.
+Thresholds: You set a "minimum stock level" for each product.
+Triggers: When stock hits that level, the engine can automatically generate a Purchase Order (PO) and notify your supplier.
+Replenishment: Once the shipment arrives, scanning the new goods (Goods Received Voucher) instantly updates the stock count and reconciles it against the PO. 
