@@ -57,20 +57,40 @@ router.post('/', authenticateToken, (req, res) => {
         return res.status(400).json({ error: `Product ${item.product_id} not found` });
       }
       
-      const qty = item.quantity || 1;
-      const itemTotal = product.price * qty;
+      let itemTotal, qty, weight, unit_measure, unit_price;
+      
+      if (item.weight && product.pricing_type === 'variable') {
+        weight = item.weight;
+        unit_measure = item.unit_measure || product.unit_measure || 'each';
+        unit_price = item.unit_price || product.price_per_unit || product.price;
+        itemTotal = weight * unit_price;
+        qty = 1;
+      } else {
+        qty = item.quantity || 1;
+        itemTotal = item.price;
+        weight = null;
+        unit_measure = null;
+        unit_price = null;
+      }
+      
       subtotal += itemTotal;
       
       processedItems.push({
         product_id: product.id,
         name: product.name,
-        price: product.price,
+        price: unit_price || product.price,
         quantity: qty,
+        weight: weight,
+        unit_measure: unit_measure,
         total: itemTotal
       });
       
-      if (product.stock !== null) {
-        db.prepare('UPDATE products SET stock = stock - ? WHERE id = ?').run(qty, product.id);
+      if (product.stock !== null && (product.pricing_type !== 'variable' || weight)) {
+        if (product.pricing_type === 'variable' && weight) {
+          db.prepare('UPDATE products SET stock = stock - ? WHERE id = ?').run(weight, product.id);
+        } else {
+          db.prepare('UPDATE products SET stock = stock - ? WHERE id = ?').run(qty, product.id);
+        }
       }
     }
     

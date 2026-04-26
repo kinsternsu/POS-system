@@ -126,6 +126,7 @@ router.post('/', authenticateToken, requireAdmin, (req, res) => {
     
     if (allReceived.total_ordered === allReceived.total_received) {
       db.prepare('UPDATE purchase_orders SET status = ? WHERE id = ?').run('received', purchase_order_id);
+      db.prepare('UPDATE goods_received_vouchers SET status = ? WHERE id = ?').run('completed', grv_id);
     } else if (allReceived.total_received > 0) {
       db.prepare('UPDATE purchase_orders SET status = ? WHERE id = ?').run('partial', purchase_order_id);
     }

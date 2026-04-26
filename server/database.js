@@ -140,6 +140,21 @@ export function initializeDatabase() {
   try { db.exec(`ALTER TABLE products ADD COLUMN reorder_point INTEGER`); } catch(e) {}
   try { db.exec(`ALTER TABLE products ADD COLUMN reorder_quantity INTEGER`); } catch(e) {}
   try { db.exec(`ALTER TABLE products ADD COLUMN supplier_id INTEGER`); } catch(e) {}
+  try { db.exec(`ALTER TABLE goods_received_vouchers ADD COLUMN status TEXT DEFAULT 'pending'`); } catch(e) {}
+  
+  const existingGRVs = db.prepare(`
+    SELECT grv.id FROM goods_received_vouchers grv
+    JOIN purchase_orders po ON grv.purchase_order_id = po.id
+    WHERE po.status = 'received' AND grv.id NOT IN (SELECT id FROM goods_received_vouchers WHERE status = 'completed')
+  `).all();
+  
+  for (const grv of existingGRVs) {
+    try { db.prepare('UPDATE goods_received_vouchers SET status = ? WHERE id = ?').run('completed', grv.id); } catch(e) {}
+  }
+  
+  try { db.exec(`ALTER TABLE products ADD COLUMN pricing_type TEXT DEFAULT 'fixed'`); } catch(e) {}
+  try { db.exec(`ALTER TABLE products ADD COLUMN price_per_unit REAL DEFAULT 0`); } catch(e) {}
+  try { db.exec(`ALTER TABLE products ADD COLUMN unit_measure TEXT DEFAULT 'each'`); } catch(e) {}
 
   const adminExists = db.prepare('SELECT id FROM employees WHERE username = ?').get('admin');
   if (!adminExists) {

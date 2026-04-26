@@ -328,8 +328,8 @@
       document.getElementById('productsGrid').innerHTML = filtered.map(p => `
         <div class="product-card" onclick="addToCart(${p.id})">
           <div class="name">${p.name}</div>
-          <div class="price">$${p.price.toFixed(2)}</div>
-          <div class="stock">Stock: ${p.stock ?? 'N/A'}</div>
+          <div class="price">${p.pricing_type === 'variable' ? '$' + (p.price_per_unit || p.price).toFixed(2) + '/' + (p.unit_measure || 'unit') : '$' + p.price.toFixed(2)}</div>
+          <div class="stock">${p.pricing_type === 'variable' ? '<span style="color:#60a5fa">Variable</span>' : 'Stock: ' + (p.stock ?? 'N/A')}</div>
           <button class="edit-btn" onclick="event.stopPropagation(); editProduct(${p.id})">Edit</button>
         </div>
       `).join('');
@@ -351,23 +351,42 @@
     function addToCart(productId) {
       const product = products.find(p => p.id === productId);
       if (!product) return;
-      const existing = cart.find(c => c.product_id === productId);
-      if (existing) existing.quantity++;
-      else cart.push({ product_id: productId, name: product.name, price: product.price, quantity: 1 });
+      
+      if (product.pricing_type === 'variable') {
+        const weight = prompt(`Enter weight for ${product.name} (${product.unit_measure || 'kg'}):`);
+        if (!weight || isNaN(weight) || parseFloat(weight) <= 0) return;
+        const weightValue = parseFloat(weight);
+        const unitPrice = product.price_per_unit || product.price;
+        const totalPrice = weightValue * unitPrice;
+        
+        cart.push({
+          product_id: productId,
+          name: product.name,
+          price: totalPrice,
+          quantity: 1,
+          weight: weightValue,
+          unit_measure: product.unit_measure || 'each',
+          unit_price: unitPrice
+        });
+      } else {
+        const existing = cart.find(c => c.product_id === productId && !c.weight);
+        if (existing) existing.quantity++;
+        else cart.push({ product_id: productId, name: product.name, price: product.price, quantity: 1 });
+      }
       renderCart();
     }
 
     function updateQty(productId, change) {
-      const item = cart.find(c => c.product_id === productId);
+      const item = cart.find(c => c.product_id === productId && !c.weight);
       if (item) {
         item.quantity += change;
-        if (item.quantity <= 0) cart = cart.filter(c => c.product_id !== productId);
+        if (item.quantity <= 0) cart = cart.filter(c => c.product_id !== productId || c.weight);
       }
       renderCart();
     }
 
     function removeItem(productId) {
-      cart = cart.filter(c => c.product_id !== productId);
+      cart = cart.filter(c => c.product_id !== productId || c.weight);
       renderCart();
     }
 
@@ -381,18 +400,20 @@
           <div class="cart-item">
             <div class="info">
               <div class="name">${item.name}</div>
-              <div class="price">$${item.price.toFixed(2)}</div>
+              <div class="price">${item.weight ? `${item.weight}${item.unit_measure} × $${item.unit_price.toFixed(2)}` : 'Qty: ' + item.quantity + ' × $' + item.price.toFixed(2)} = $${item.price.toFixed(2)}</div>
             </div>
             <div class="qty">
+              ${item.weight ? '<span style="color:#60a5fa">' + item.weight + item.unit_measure + '</span>' : `
               <button onclick="updateQty(${item.product_id}, -1)">-</button>
               <span>${item.quantity}</span>
               <button onclick="updateQty(${item.product_id}, 1)">+</button>
+              `}
               <button class="remove" onclick="removeItem(${item.product_id})">×</button>
             </div>
           </div>
         `).join('');
       }
-      const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+      const subtotal = cart.reduce((sum, item) => sum + item.price, 0);
       const tax = subtotal * (settings.tax_rate || 0) / 100;
       const total = subtotal + tax;
       document.getElementById('cartSubtotal').textContent = '$' + subtotal.toFixed(2);
@@ -429,7 +450,7 @@
     }
     
     function selectCash() {
-      paymentTotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+      paymentTotal = cart.reduce((sum, item) => sum + item.price, 0);
       document.getElementById('paymentMethods').style.display = 'none';
       document.getElementById('cashPaymentSection').style.display = 'block';
       document.getElementById('cashReceived').value = '';
@@ -470,7 +491,7 @@
           <div class="receipt-items">
             ${transaction.items.map(i => `
               <div class="receipt-item">
-                <span>${i.quantity}x ${i.name}</span>
+                <span>${i.weight ? i.weight + i.unit_measure + ' ' + i.name : i.quantity + 'x ' + i.name}</span>
                 <span>$${i.total.toFixed(2)}</span>
               </div>
             `).join('')}

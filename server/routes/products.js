@@ -36,7 +36,7 @@ router.get('/search', authenticateToken, (req, res) => {
 
 router.post('/', authenticateToken, requireAdmin, (req, res) => {
   try {
-    const { name, sku, barcode, price, cost_price, stock, category, image_url, reorder_point, reorder_quantity, supplier_id } = req.body;
+    const { name, sku, barcode, price, cost_price, stock, category, image_url, reorder_point, reorder_quantity, supplier_id, pricing_type, price_per_unit, unit_measure } = req.body;
     console.log('POST /products - adding:', name, price);
     
     if (!name || !price) {
@@ -44,11 +44,11 @@ router.post('/', authenticateToken, requireAdmin, (req, res) => {
     }
 
     const stmt = db.prepare(`
-      INSERT INTO products (name, sku, barcode, price, cost_price, stock, category, image_url, reorder_point, reorder_quantity, supplier_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO products (name, sku, barcode, price, cost_price, stock, category, image_url, reorder_point, reorder_quantity, supplier_id, pricing_type, price_per_unit, unit_measure)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     
-    const result = stmt.run(name, sku || null, barcode || null, price, cost_price || 0, stock || 0, category || null, image_url || null, reorder_point || 0, reorder_quantity || 0, supplier_id || null);
+    const result = stmt.run(name, sku || null, barcode || null, price, cost_price || 0, stock || 0, category || null, image_url || null, reorder_point || 0, reorder_quantity || 0, supplier_id || null, pricing_type || 'fixed', price_per_unit || 0, unit_measure || 'each');
     console.log('Product added with ID:', result.lastInsertRowid);
     
     res.json({ id: result.lastInsertRowid, name, price });
@@ -63,7 +63,7 @@ router.post('/', authenticateToken, requireAdmin, (req, res) => {
 router.put('/:id', authenticateToken, requireAdmin, (req, res) => {
   try {
     const { id } = req.params;
-    const { name, sku, barcode, price, cost_price, stock, category, image_url, is_active, reorder_point, reorder_quantity, supplier_id } = req.body;
+    const { name, sku, barcode, price, cost_price, stock, category, image_url, is_active, reorder_point, reorder_quantity, supplier_id, pricing_type, price_per_unit, unit_measure } = req.body;
     
     const updates = [];
     const params = [];
@@ -80,6 +80,9 @@ router.put('/:id', authenticateToken, requireAdmin, (req, res) => {
     if (reorder_point !== undefined) { updates.push('reorder_point = ?'); params.push(reorder_point); }
     if (reorder_quantity !== undefined) { updates.push('reorder_quantity = ?'); params.push(reorder_quantity); }
     if (supplier_id !== undefined) { updates.push('supplier_id = ?'); params.push(supplier_id); }
+    if (pricing_type !== undefined) { updates.push('pricing_type = ?'); params.push(pricing_type); }
+    if (price_per_unit !== undefined) { updates.push('price_per_unit = ?'); params.push(price_per_unit); }
+    if (unit_measure !== undefined) { updates.push('unit_measure = ?'); params.push(unit_measure); }
     
     if (updates.length === 0) {
       return res.status(400).json({ error: 'No fields to update' });

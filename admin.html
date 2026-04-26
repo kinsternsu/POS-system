@@ -76,6 +76,52 @@
     </div>
   </div>
 
+  <div class="main">
+    <div class="header">
+      <h1>Dashboard</h1>
+      <button class="btn btn-primary" onclick="openModal()">+ Add Employee</button>
+    </div>
+    <div class="stats-grid">
+      <div class="stat-card">
+        <h3>Today's Sales</h3>
+        <div class="value" id="todaySales">$0.00</div>
+      </div>
+      <div class="stat-card">
+        <h3>Today's Transactions</h3>
+        <div class="value blue" id="todayTransactions">0</div>
+      </div>
+      <div class="stat-card">
+        <h3>Total Products</h3>
+        <div class="value green" id="totalProducts">0</div>
+      </div>
+      <div class="stat-card">
+        <h3>Total Employees</h3>
+        <div class="value orange" id="totalEmployees">0</div>
+      </div>
+    </div>
+
+    <div class="section active" id="section-dashboard">
+      <h2 style="margin-bottom:1rem">Recent Transactions</h2>
+      <table id="recentTransactions">
+        <thead>
+          <tr><th>ID</th><th>Employee</th><th>Total</th><th>Payment</th><th>Date</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div class="section" id="section-employees">
+      <div class="search-bar">
+        <input type="text" id="employeeSearch" placeholder="Search employees..." oninput="filterEmployees()">
+      </div>
+      <table id="employeesTable">
+        <thead>
+          <tr><th>Name</th><th>Username</th><th>Role</th><th>Status</th><th>Actions</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
     <div class="section" id="section-reorder">
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-bottom:1.5rem">
         <div class="stat-card">
@@ -147,53 +193,6 @@
       <table id="grvTable">
         <thead>
           <tr><th>GRV Number</th><th>PO Number</th><th>Received By</th><th>Status</th><th>Date</th><th>Actions</th></tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-    </div>
-  </div>
-
-  <div class="main">
-    <div class="header">
-      <h1>Dashboard</h1>
-      <button class="btn btn-primary" onclick="openModal()">+ Add Employee</button>
-    </div>
-    <div class="stats-grid">
-      <div class="stat-card">
-        <h3>Today's Sales</h3>
-        <div class="value" id="todaySales">$0.00</div>
-      </div>
-      <div class="stat-card">
-        <h3>Today's Transactions</h3>
-        <div class="value blue" id="todayTransactions">0</div>
-      </div>
-      <div class="stat-card">
-        <h3>Total Products</h3>
-        <div class="value green" id="totalProducts">0</div>
-      </div>
-      <div class="stat-card">
-        <h3>Total Employees</h3>
-        <div class="value orange" id="totalEmployees">0</div>
-      </div>
-    </div>
-
-    <div class="section active" id="section-dashboard">
-      <h2 style="margin-bottom:1rem">Recent Transactions</h2>
-      <table id="recentTransactions">
-        <thead>
-          <tr><th>ID</th><th>Employee</th><th>Total</th><th>Payment</th><th>Date</th></tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-    </div>
-
-    <div class="section" id="section-employees">
-      <div class="search-bar">
-        <input type="text" id="employeeSearch" placeholder="Search employees..." oninput="filterEmployees()">
-      </div>
-      <table id="employeesTable">
-        <thead>
-          <tr><th>Name</th><th>Username</th><th>Role</th><th>Status</th><th>Actions</th></tr>
         </thead>
         <tbody></tbody>
       </table>
@@ -496,7 +495,23 @@
           <div class="form-group"><label>Name *</label><input type="text" id="editProdName" value=""></div>
           <div class="form-group"><label>SKU</label><input type="text" id="editProdSku" value=""></div>
           <div class="form-group"><label>Barcode</label><input type="text" id="editProdBarcode" value=""></div>
+          <div class="form-group"><label>Pricing Type</label>
+            <select id="editProdPricingType" style="width:100%;padding:10px;background:#0f0f23;border:1px solid #333;border-radius:6px;color:#fff" onchange="toggleWeightFields()">
+              <option value="fixed">Fixed Price</option>
+              <option value="variable">Variable (Weight/Unit)</option>
+            </select>
+          </div>
           <div class="form-group"><label>Price *</label><input type="number" step="0.01" id="editProdPrice" value="0"></div>
+          <div class="form-group" id="weightPriceField" style="display:none"><label>Price Per Unit</label><input type="number" step="0.01" id="editProdPricePerUnit" value="0" placeholder="Price per kg/lb"></div>
+          <div class="form-group" id="unitMeasureField" style="display:none"><label>Unit of Measure</label>
+            <select id="editProdUnitMeasure" style="width:100%;padding:10px;background:#0f0f23;border:1px solid #333;border-radius:6px;color:#fff">
+              <option value="kg">Kilogram (kg)</option>
+              <option value="lb">Pound (lb)</option>
+              <option value="oz">Ounce (oz)</option>
+              <option value="g">Gram (g)</option>
+              <option value="each">Each</option>
+            </select>
+          </div>
           <div class="form-group"><label>Cost Price</label><input type="number" step="0.01" id="editProdCost" value="0"></div>
           <div class="form-group"><label>Stock</label><input type="number" id="editProdStock" value="0"></div>
           <div class="form-group"><label>Category</label><input type="text" id="editProdCategory" value=""></div>
@@ -518,6 +533,12 @@
       `;
     }
 
+    function toggleWeightFields() {
+      const type = document.getElementById('editProdPricingType').value;
+      document.getElementById('weightPriceField').style.display = type === 'variable' ? 'block' : 'none';
+      document.getElementById('unitMeasureField').style.display = type === 'variable' ? 'block' : 'none';
+    }
+
     async function saveNewProduct() {
       const data = {
         name: document.getElementById('editProdName').value,
@@ -529,7 +550,10 @@
         category: document.getElementById('editProdCategory').value,
         supplier_id: document.getElementById('editProdSupplier').value || null,
         reorder_point: parseInt(document.getElementById('editProdReorderPoint').value) || 0,
-        reorder_quantity: parseInt(document.getElementById('editProdReorderQty').value) || 0
+        reorder_quantity: parseInt(document.getElementById('editProdReorderQty').value) || 0,
+        pricing_type: document.getElementById('editProdPricingType').value,
+        price_per_unit: parseFloat(document.getElementById('editProdPricePerUnit').value) || 0,
+        unit_measure: document.getElementById('editProdUnitMeasure').value
       };
       
       if (!data.name || !data.price) return alert('Name and Price are required');
@@ -545,6 +569,7 @@
       if (!p) return;
       
       const suppliers = await apiCall('/suppliers');
+      const isVariable = p.pricing_type === 'variable';
       
       const modal = document.getElementById('productModal');
       modal.classList.add('show');
@@ -555,7 +580,23 @@
           <div class="form-group"><label>Name</label><input type="text" id="editProdName" value="${p.name}"></div>
           <div class="form-group"><label>SKU</label><input type="text" id="editProdSku" value="${p.sku || ''}"></div>
           <div class="form-group"><label>Barcode</label><input type="text" id="editProdBarcode" value="${p.barcode || ''}"></div>
+          <div class="form-group"><label>Pricing Type</label>
+            <select id="editProdPricingType" style="width:100%;padding:10px;background:#0f0f23;border:1px solid #333;border-radius:6px;color:#fff" onchange="toggleWeightFields()">
+              <option value="fixed" ${!isVariable ? 'selected' : ''}>Fixed Price</option>
+              <option value="variable" ${isVariable ? 'selected' : ''}>Variable (Weight/Unit)</option>
+            </select>
+          </div>
           <div class="form-group"><label>Price</label><input type="number" step="0.01" id="editProdPrice" value="${p.price}"></div>
+          <div class="form-group" id="weightPriceField" style="display:${isVariable ? 'block' : 'none'}"><label>Price Per Unit</label><input type="number" step="0.01" id="editProdPricePerUnit" value="${p.price_per_unit || 0}" placeholder="Price per kg/lb"></div>
+          <div class="form-group" id="unitMeasureField" style="display:${isVariable ? 'block' : 'none'}"><label>Unit of Measure</label>
+            <select id="editProdUnitMeasure" style="width:100%;padding:10px;background:#0f0f23;border:1px solid #333;border-radius:6px;color:#fff">
+              <option value="kg" ${p.unit_measure === 'kg' ? 'selected' : ''}>Kilogram (kg)</option>
+              <option value="lb" ${p.unit_measure === 'lb' ? 'selected' : ''}>Pound (lb)</option>
+              <option value="oz" ${p.unit_measure === 'oz' ? 'selected' : ''}>Ounce (oz)</option>
+              <option value="g" ${p.unit_measure === 'g' ? 'selected' : ''}>Gram (g)</option>
+              <option value="each" ${p.unit_measure === 'each' ? 'selected' : ''}>Each</option>
+            </select>
+          </div>
           <div class="form-group"><label>Cost Price</label><input type="number" step="0.01" id="editProdCost" value="${p.cost_price || 0}"></div>
           <div class="form-group"><label>Stock</label><input type="number" id="editProdStock" value="${p.stock || 0}"></div>
           <div class="form-group"><label>Category</label><input type="text" id="editProdCategory" value="${p.category || ''}"></div>
@@ -589,7 +630,10 @@
         category: document.getElementById('editProdCategory').value,
         supplier_id: document.getElementById('editProdSupplier').value || null,
         reorder_point: parseInt(document.getElementById('editProdReorderPoint').value) || 0,
-        reorder_quantity: parseInt(document.getElementById('editProdReorderQty').value) || 0
+        reorder_quantity: parseInt(document.getElementById('editProdReorderQty').value) || 0,
+        pricing_type: document.getElementById('editProdPricingType').value,
+        price_per_unit: parseFloat(document.getElementById('editProdPricePerUnit').value) || 0,
+        unit_measure: document.getElementById('editProdUnitMeasure').value
       };
       
       await apiCall(`/products/${id}`, { method: 'PUT', body: JSON.stringify(data) });
@@ -894,9 +938,10 @@
     }
 
     async function openGRVModal() {
-      const pos = await apiCall('/purchase-orders?status=pending');
+      const pos = await apiCall('/purchase-orders');
+      const activePos = pos.filter(p => p.status !== 'received');
       const sel = document.getElementById('grvPO');
-      sel.innerHTML = '<option value="">Select Purchase Order</option>' + pos.map(p => `<option value="${p.id}">${p.po_number} - ${p.supplier_name}</option>`).join('');
+      sel.innerHTML = '<option value="">Select Purchase Order</option>' + activePos.map(p => `<option value="${p.id}">${p.po_number} - ${p.supplier_name} (${p.status})</option>`).join('');
       document.getElementById('grvItemsContainer').innerHTML = '';
       document.getElementById('grvModal').classList.add('show');
     }
