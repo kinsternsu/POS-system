@@ -1,6 +1,7 @@
 import express from 'express';
 import db from '../database.js';
 import { authenticateToken, requireAdmin } from '../auth.js';
+import { logAudit } from './audit.js';
 
 const router = express.Router();
 
@@ -100,7 +101,13 @@ router.post('/', authenticateToken, requireAdmin, (req, res) => {
     for (const item of items) {
       insertItem.run(grv_id, item.product_id, item.quantity, item.condition || 'good', item.notes || null);
       
+      const productBefore = db.prepare('SELECT stock FROM products WHERE id = ?').get(item.product_id);
+      const oldStock = productBefore ? productBefore.stock : 0;
       db.prepare('UPDATE products SET stock = stock + ? WHERE id = ?').run(item.quantity, item.product_id);
+      const productAfter = db.prepare('SELECT stock FROM products WHERE id = ?').get(item.product_id);
+      const newStock = productAfter ? productAfter.stock : 0;
+      
+      logAudit('grv', item.product_id, item.quantity, oldStock.toString(), newStock.toString(), req.user.id, 'Goods received', 'grv', grv_id);
       
       const poi = db.prepare(`
         SELECT * FROM purchase_order_items 

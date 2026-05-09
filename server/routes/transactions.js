@@ -1,6 +1,7 @@
 import express from 'express';
 import db from '../database.js';
 import { authenticateToken } from '../auth.js';
+import { logAudit } from './audit.js';
 
 const router = express.Router();
 
@@ -86,11 +87,13 @@ router.post('/', authenticateToken, (req, res) => {
       });
       
       if (product.stock !== null && (product.pricing_type !== 'variable' || weight)) {
+        const stockDecrease = product.pricing_type === 'variable' && weight ? weight : qty;
         if (product.pricing_type === 'variable' && weight) {
           db.prepare('UPDATE products SET stock = stock - ? WHERE id = ?').run(weight, product.id);
         } else {
           db.prepare('UPDATE products SET stock = stock - ? WHERE id = ?').run(qty, product.id);
         }
+        logAudit('sale', product.id, -stockDecrease, (product.stock).toString(), (product.stock - stockDecrease).toString(), employee_id, 'Sale transaction', 'transaction', null);
       }
     }
     

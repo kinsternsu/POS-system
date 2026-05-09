@@ -67,6 +67,10 @@
     <div class="nav-item" data-section="products">Products</div>
     <div class="nav-item" data-section="transactions">Transactions</div>
     <div class="nav-item" data-section="returns">Returns</div>
+    <div class="nav-item" data-section="audit">Audit Logs</div>
+    <div class="nav-item" data-section="adjustments">Stock Adjustments</div>
+    <div class="nav-item" data-section="blind-counts">Blind Counts</div>
+    <div class="nav-item" data-section="cash-ups">Cash-Ups</div>
     <div class="nav-item" data-section="settings">Settings</div>
     <div class="nav-item" onclick="window.location.href='pos.html'" style="color:#4ade80">POS Terminal</div>
     <div class="user-info">
@@ -272,6 +276,99 @@
           <input type="text" id="currency">
         </div>
         <button class="btn btn-primary" onclick="saveSettings()">Save Settings</button>
+      </div>
+    </div>
+
+    <div class="section" id="section-audit">
+      <div class="search-bar">
+        <input type="date" id="auditStartDate" onchange="loadAuditLogs()">
+        <input type="date" id="auditEndDate" onchange="loadAuditLogs()">
+        <select id="auditTypeFilter" onchange="loadAuditLogs()" style="padding:10px;background:#1a1a2e;border:1px solid #333;border-radius:8px;color:#fff">
+          <option value="">All Types</option>
+          <option value="sale">Sale</option>
+          <option value="grv">GRV</option>
+          <option value="adjustment">Adjustment</option>
+          <option value="blind_count">Blind Count</option>
+        </select>
+        <button class="btn btn-secondary" onclick="loadAuditLogs()">Refresh</button>
+      </div>
+      <table id="auditTable">
+        <thead>
+          <tr><th>Date</th><th>Action</th><th>Product</th><th>Change</th><th>User</th><th>Reason</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div class="section" id="section-adjustments">
+      <div class="search-bar">
+        <select id="adjStatusFilter" onchange="loadAdjustmentRequests()" style="padding:10px;background:#1a1a2e;border:1px solid #333;border-radius:8px;color:#fff">
+          <option value="">All Status</option>
+          <option value="pending">Pending</option>
+          <option value="approved">Approved</option>
+          <option value="rejected">Rejected</option>
+        </select>
+        <button class="btn btn-secondary" onclick="loadAdjustmentRequests()">Refresh</button>
+      </div>
+      <table id="adjustmentsTable">
+        <thead>
+          <tr><th>Product</th><th>Current</th><th>Requested</th><th>Change</th><th>Reason</th><th>Requested By</th><th>Status</th><th>Actions</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div class="section" id="section-blind-counts">
+      <div class="search-bar">
+        <button class="btn btn-primary" onclick="startBlindCount()">+ Start New Count</button>
+        <button class="btn btn-secondary" onclick="loadBlindCounts()">Refresh</button>
+      </div>
+      <table id="blindCountsTable">
+        <thead>
+          <tr><th>Date</th><th>Counted By</th><th>Items</th><th>Variance</th><th>Status</th><th>Actions</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div class="section" id="section-cash-ups">
+      <div class="search-bar">
+        <button class="btn btn-secondary" onclick="loadCashUps()">Refresh</button>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:1.5rem">
+        <div class="stat-card">
+          <h3>Total Cash-Ups</h3>
+          <div class="value" id="cashUpTotal">0</div>
+        </div>
+        <div class="stat-card">
+          <h3>Balanced</h3>
+          <div class="value green" id="cashUpBalanced">0</div>
+        </div>
+        <div class="stat-card">
+          <h3>Short</h3>
+          <div class="value" style="color:#ef4444" id="cashUpShort">0</div>
+        </div>
+        <div class="stat-card">
+          <h3>Over</h3>
+          <div class="value blue" id="cashUpOver">0</div>
+        </div>
+      </div>
+      <table id="cashUpsTable">
+        <thead>
+          <tr><th>Date</th><th>Employee</th><th>Expected</th><th>Actual</th><th>Variance</th><th>Status</th><th>Actions</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+</div>
+    </div>
+
+    <div class="modal" id="detailModal">
+      <div class="modal-content" style="width:600px;max-height:80vh;overflow-y:auto">
+        <h3 id="detailModalTitle">Details</h3>
+        <div id="detailModalContent"></div>
+        <div class="modal-buttons">
+          <button class="btn btn-secondary" onclick="document.getElementById('detailModal').classList.remove('show')">Close</button>
+        </div>
       </div>
     </div>
   </div>
@@ -1002,7 +1099,209 @@
     document.querySelectorAll('.nav-item')[6].addEventListener('click', loadProducts);
     document.querySelectorAll('.nav-item')[7].addEventListener('click', loadTransactions);
     document.querySelectorAll('.nav-item')[8].addEventListener('click', loadReturns);
-    document.querySelectorAll('.nav-item')[9].addEventListener('click', loadSettings);
+    document.querySelectorAll('.nav-item')[9].addEventListener('click', loadAuditLogs);
+    document.querySelectorAll('.nav-item')[10].addEventListener('click', loadAdjustmentRequests);
+    document.querySelectorAll('.nav-item')[11].addEventListener('click', loadBlindCounts);
+    document.querySelectorAll('.nav-item')[12].addEventListener('click', loadSettings);
+
+    async function loadAuditLogs() {
+      const startDate = document.getElementById('auditStartDate').value;
+      const endDate = document.getElementById('auditEndDate').value;
+      const type = document.getElementById('auditTypeFilter').value;
+      let url = '/audit?limit=200';
+      if (startDate) url += '&start_date=' + startDate;
+      if (endDate) url += '&end_date=' + endDate;
+      if (type) url += '&action_type=' + type;
+      
+      const logs = await apiCall(url);
+      const tbody = document.querySelector('#auditTable tbody');
+      if (!logs.length) { tbody.innerHTML = '<tr><td colspan="6" class="empty">No audit logs found</td></tr>'; return; }
+      tbody.innerHTML = logs.map(l => `
+        <tr>
+          <td>${new Date(l.created_at).toLocaleString()}</td>
+          <td><span class="badge ${l.action_type === 'sale' ? 'admin' : 'cashier'}">${l.action_type}</span></td>
+          <td>${l.product_name || '-'}</td>
+          <td style="color:${l.quantity_change > 0 ? '#4ade80' : '#ef4444'}">${l.quantity_change > 0 ? '+' : ''}${l.quantity_change}</td>
+          <td>${l.user_name || '-'}</td>
+          <td>${l.reason || '-'}</td>
+        </tr>
+      `).join('');
+    }
+
+    async function loadAdjustmentRequests() {
+      const status = document.getElementById('adjStatusFilter').value;
+      const requests = await apiCall('/stock/requests' + (status ? '?status=' + status : ''));
+      const tbody = document.querySelector('#adjustmentsTable tbody');
+      if (!requests.length) { tbody.innerHTML = '<tr><td colspan="8" class="empty">No requests</td></tr>'; return; }
+      tbody.innerHTML = requests.map(r => `
+        <tr>
+          <td>${r.product_name}</td>
+          <td>${r.current_stock}</td>
+          <td>${r.new_stock}</td>
+          <td style="color:${r.new_stock > r.current_stock ? '#4ade80' : '#ef4444'}">${r.new_stock - r.current_stock > 0 ? '+' : ''}${r.new_stock - r.current_stock}</td>
+          <td>${r.reason}</td>
+          <td>${r.requested_by_name}</td>
+          <td><span class="badge ${r.status === 'approved' ? 'cashier' : r.status === 'rejected' ? 'admin' : ''}">${r.status}</span></td>
+          <td>
+            ${r.status === 'pending' ? `
+              <button class="btn btn-sm btn-primary" onclick="approveAdjustment(${r.id})">Approve</button>
+              <button class="btn btn-sm btn-secondary" onclick="rejectAdjustment(${r.id})">Reject</button>
+            ` : r.status === 'approved' ? (r.approved_by_name ? 'By: ' + r.approved_by_name : '') : ''}
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    async function approveAdjustment(id) {
+      if (!confirm('Approve this stock adjustment?')) return;
+      await apiCall(`/stock/requests/${id}/approve`, { method: 'PUT' });
+      loadAdjustmentRequests();
+    }
+
+    async function rejectAdjustment(id) {
+      if (!confirm('Reject this stock adjustment?')) return;
+      await apiCall(`/stock/requests/${id}/reject`, { method: 'PUT' });
+      loadAdjustmentRequests();
+    }
+
+    async function loadBlindCounts() {
+      const counts = await apiCall('/blind-counts');
+      const tbody = document.querySelector('#blindCountsTable tbody');
+      if (!counts.length) { tbody.innerHTML = '<tr><td colspan="6" class="empty">No blind counts</td></tr>'; return; }
+      tbody.innerHTML = counts.map(c => `
+        <tr>
+          <td>${c.count_date}</td>
+          <td>${c.counted_by_name}</td>
+          <td>${c.item_count}</td>
+          <td style="color:${c.total_variance > 0 ? '#4ade80' : c.total_variance < 0 ? '#ef4444' : '#888'}">${c.total_variance || 0}</td>
+          <td><span class="badge ${c.status === 'completed' ? 'cashier' : 'admin'}">${c.status}</span></td>
+          <td>
+            ${c.status === 'completed' && c.total_variance != 0 ? `<button class="btn btn-sm btn-primary" onclick="adjustBlindCount(${c.id})">Adjust Stock</button>` : ''}
+            <button class="btn btn-sm btn-secondary" onclick="viewBlindCount(${c.id})">View</button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    async function startBlindCount() {
+      if (!confirm('Start a new blind count? All products will be included.')) return;
+      const result = await apiCall('/blind-counts', { method: 'POST', body: JSON.stringify({}) });
+      alert('Blind count started with ' + result.item_count + ' products. Proceed to count physical inventory.');
+      loadBlindCounts();
+    }
+
+    async function viewBlindCount(id) {
+      const count = await apiCall(`/blind-counts/${id}`);
+      const variances = count.items.filter(i => i.variance && i.variance !== 0);
+      
+      let html = '<div style="padding:1rem;background:#1a1a2e;border-radius:8px">';
+      html += '<h3>Blind Count - ' + count.count_date + '</h3>';
+      html += '<p>Counted by: ' + count.counted_by_name + '</p>';
+      html += '<p>Status: ' + count.status + '</p>';
+      html += '<h4>Variances:</h4>';
+      
+      if (!variances.length) {
+        html += '<p>No variances found.</p>';
+      } else {
+        html += '<table style="width:100%"><tr><th>Product</th><th>System</th><th>Physical</th><th>Variance</th></tr>';
+        variances.forEach(v => {
+          html += '<tr><td>' + v.product_name + '</td><td>' + v.system_count + '</td><td>' + (v.physical_count || '-') + '</td><td style="color:' + (v.variance > 0 ? '#4ade80' : '#ef4444') + '">' + (v.variance || '-') + '</td></tr>';
+        });
+        html += '</table>';
+      }
+      html += '</div>';
+      document.getElementById('detailModalTitle').textContent = 'Blind Count Details';
+      document.getElementById('detailModalContent').innerHTML = html;
+      document.getElementById('detailModal').classList.add('show');
+    }
+
+    async function adjustBlindCount(id) {
+      if (!confirm('Adjust all product stock levels to physical counts?')) return;
+      const result = await apiCall('/blind-counts/adjust', { method: 'POST', body: JSON.stringify({ blind_count_id: id }) });
+      alert('Adjusted ' + result.adjusted_count + ' products');
+      loadBlindCounts();
+      loadAuditLogs();
+    }
+
+    document.querySelectorAll('.nav-item')[13].addEventListener('click', loadCashUps);
+
+    async function loadCashUps() {
+      try {
+        const res = await fetch(`${API_URL}/cash-up/history?limit=100`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const cashUps = await res.json();
+        
+        const balanced = cashUps.filter(c => c.variance === 0).length;
+        const short = cashUps.filter(c => c.variance < 0).length;
+        const over = cashUps.filter(c => c.variance > 0).length;
+        
+        document.getElementById('cashUpTotal').textContent = cashUps.length;
+        document.getElementById('cashUpBalanced').textContent = balanced;
+        document.getElementById('cashUpShort').textContent = short;
+        document.getElementById('cashUpOver').textContent = over;
+        
+        const tbody = document.querySelector('#cashUpsTable tbody');
+        if (!cashUps.length) {
+          tbody.innerHTML = '<tr><td colspan="7" class="empty">No cash-ups found</td></tr>';
+          return;
+        }
+        
+        tbody.innerHTML = cashUps.map(c => `
+          <tr>
+            <td>${c.start_time ? new Date(c.start_time).toLocaleDateString() : '-'}</td>
+            <td>${c.employee_name || '-'}</td>
+            <td>P${(c.expected_cash || 0).toFixed(2)}</td>
+            <td>P${(c.actual_cash || 0).toFixed(2)}</td>
+            <td style="color:${c.variance === 0 ? '#4ade80' : c.variance > 0 ? '#60a5fa' : '#ef4444'}">P${(c.variance || 0).toFixed(2)}</td>
+            <td><span class="badge ${c.variance === 0 ? 'cashier' : c.variance > 0 ? 'admin' : ''}">${c.variance === 0 ? 'Balanced' : c.variance > 0 ? 'Over' : 'Short'}</span></td>
+            <td><button class="btn btn-sm btn-secondary" onclick="viewCashUp(${c.id})">View</button></td>
+          </tr>
+        `).join('');
+      } catch (err) {
+        console.error('Error loading cash-ups:', err);
+      }
+    }
+
+    async function viewCashUp(id) {
+      try {
+        const res = await fetch(`${API_URL}/cash-up/${id}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const cashUp = await res.json();
+        
+        let html = `<div style="padding:1rem;background:#1a1a2e;border-radius:8px;max-width:400px">
+          <h3>Cash-Up Details</h3>
+          <p><strong>Date:</strong> ${new Date(cashUp.created_at).toLocaleString()}</p>
+          <p><strong>Employee:</strong> ${cashUp.employee_name || '-'}</p>
+          <p><strong>Expected Cash:</strong> P${(cashUp.expected_cash || 0).toFixed(2)}</p>
+          <p><strong>Actual Cash:</strong> P${(cashUp.actual_cash || 0).toFixed(2)}</p>
+          <p><strong>Card Amount:</strong> P${(cashUp.card_amount || 0).toFixed(2)}</p>
+          <p><strong>Cheque Amount:</strong> P${(cashUp.cheque_amount || 0).toFixed(2)}</p>
+          <p><strong>Payouts:</strong> P${(cashUp.payouts || 0).toFixed(2)}</p>
+          <p><strong>Variance:</strong> P${(cashUp.variance || 0).toFixed(2)}</p>`;
+        
+        if (cashUp.denominations && cashUp.denominations.length > 0) {
+          html += '<h4>Denominations:</h4><table style="width:100%"><tr><th>Denomination</th><th>Qty</th><th>Total</th></tr>';
+          cashUp.denominations.forEach(d => {
+            html += `<tr><td>P${d.denomination}</td><td>${d.quantity}</td><td>P${d.total.toFixed(2)}</td></tr>`;
+          });
+          html += '</table>';
+        }
+        
+        if (cashUp.notes) {
+          html += `<p><strong>Notes:</strong> ${cashUp.notes}</p>`;
+        }
+        
+        html += '</div>';
+        document.getElementById('detailModalTitle').textContent = 'Cash-Up Details';
+        document.getElementById('detailModalContent').innerHTML = html;
+        document.getElementById('detailModal').classList.add('show');
+      } catch (err) {
+        alert('Error: ' + err.message);
+      }
+    }
+
     loadDashboard();
   </script>
 </body>

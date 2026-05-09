@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ZPos ZA-S300M WebUSB Test</title>
+    <style>
+        body { font-family: sans-serif; text-align: center; padding: 50px; }
+        button { padding: 15px 30px; font-size: 18px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 5px; }
+        #status { margin-top: 20px; color: #555; }
+    </style>
+</head>
+<body>
+    <h1>ZPos ZA-S300M Test</h1>
+    <button id="printBtn">Connect, Print & Open Till</button>
+    <div id="status">Status: Waiting for user...</div>
+
+    <script>
+        const printBtn = document.getElementById('printBtn');
+        const status = document.getElementById('status');
+
+        // ESC/POS Commands in Hex
+        const ESC = 0x1B;
+        const GS = 0x1D;
+        const KICK_DRAWER = new Uint8Array([ESC, 0x70, 0x00, 0x19, 0xFA]); // Open drawer on pin 2
+        const INITIALIZE = new Uint8Array([ESC, 0x40]);                   // Reset printer
+        const FULL_CUT = new Uint8Array([GS, 0x56, 0x00]);              // Full paper cut
+
+        printBtn.addEventListener('click', async () => {
+            try {
+                status.innerText = "Requesting device...";
+                // 1. Request the printer (You can add filters like { vendorId: 0x1FC9 } if known)
+                const device = await navigator.usb.requestDevice({ filters: [] });
+
+                status.innerText = "Connecting...";
+                await device.open();
+                await device.selectConfiguration(1);
+                await device.claimInterface(0);
+
+                status.innerText = "Sending commands...";
+                const encoder = new TextEncoder();
+                const textData = encoder.encode("\n--- ZPos TEST PAGE ---\nModel: ZA-S300M\nStatus: Online\n\n\n\n");
+
+                // Combine: Initialize + Kick Drawer + Text + Cut
+                const combinedData = new Uint8Array([
+                    ...INITIALIZE, 
+                    ...KICK_DRAWER, 
+                    ...textData, 
+                    ...FULL_CUT
+                ]);
+
+                // Send to Endpoint 1 (standard for thermal printers)
+                await device.transferOut(1, combinedData);
+                
+                status.innerText = "Success! Drawer kicked and page printed.";
+            } catch (err) {
+                console.error(err);
+                status.innerText = "Error: " + err.message;
+            }
+        });
+    </script>
+</body>
+</html>

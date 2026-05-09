@@ -117,6 +117,7 @@
       <button class="checkout-btn" onclick="openPayment()">Checkout</button>
       <button class="clear-btn" onclick="clearCart()">Clear Cart</button>
       <button class="clear-btn" onclick="openReturn()" style="background:#9333ea;margin-top:0.5rem">↩ Process Return</button>
+      <button class="clear-btn" onclick="openCashUp()" style="background:#f59e0b;margin-top:0.5rem" id="cashUpBtn">💰 Cash-Up</button>
     </div>
   </div>
 
@@ -145,6 +146,39 @@
   </div>
 
   <div class="receipt" id="receipt"></div>
+
+  <div class="payment-modal" id="cashUpModal">
+    <div class="modal-content" style="width:500px">
+      <h3>Cash-Up / Till Reconciliation</h3>
+      <input type="hidden" id="cashUpShiftId">
+      
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;padding:1rem;background:#0f0f23;border-radius:8px">
+        <div><label style="color:#888;font-size:0.8rem">Starting Float</label><div id="shiftFloat" style="font-size:1.2rem;font-weight:bold">P0.00</div></div>
+        <div><label style="color:#888;font-size:0.8rem">Expected Cash</label><div id="shiftExpectedCash" style="font-size:1.2rem;font-weight:bold;color:#60a5fa">P0.00</div></div>
+        <div><label style="color:#888;font-size:0.8rem">Card Total</label><div id="shiftCardTotal" style="font-size:1.2rem;font-weight:bold;color:#a855f7">P0.00</div></div>
+        <div><label style="color:#888;font-size:0.8rem">Actual Cash</label><div id="actualCashDisplay" style="font-size:1.2rem;font-weight:bold;color:#4ade80">P0.00</div></div>
+      </div>
+      
+      <div style="max-height:300px;overflow-y:auto" id="denominationsContainer"></div>
+      
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin:1rem 0">
+        <div class="form-group"><label>Card Amount (P)</label><input type="number" id="cardAmount" step="0.01" placeholder="0.00" style="width:100%;padding:10px;background:#0f0f23;border:1px solid #333;border-radius:6px;color:#fff" oninput="updateCashUpSummary()"></div>
+        <div class="form-group"><label>Cheque Amount (P)</label><input type="number" id="chequeAmount" step="0.01" placeholder="0.00" style="width:100%;padding:10px;background:#0f0f23;border:1px solid #333;border-radius:6px;color:#fff" oninput="updateCashUpSummary()"></div>
+      </div>
+      
+      <div style="padding:1rem;background:#0f0f23;border-radius:8px;margin-bottom:1rem;text-align:center">
+        <label style="color:#888;font-size:0.9rem">Variance</label>
+        <div id="varianceDisplay" style="font-size:2rem;font-weight:bold">P0.00</div>
+      </div>
+      
+      <div class="form-group"><label>Notes</label><textarea id="cashUpNotes" placeholder="Optional notes..." style="width:100%;padding:10px;background:#0f0f23;border:1px solid #333;border-radius:6px;color:#fff;height:60px"></textarea></div>
+      
+      <div style="display:flex;gap:1rem">
+        <button class="btn btn-secondary" style="flex:1" onclick="closeCashUp()">Cancel</button>
+        <button class="btn btn-primary" style="flex:1;background:#4ade80" onclick="submitCashUp()">Submit Cash-Up</button>
+      </div>
+    </div>
+  </div>
 
   <div class="payment-modal" id="productModal">
     <div class="modal-content" style="width:350px">
@@ -716,6 +750,162 @@
       } catch (err) {
         alert(err.message);
       }
+    }
+
+    async function openCashUp() {
+      const modal = document.getElementById('cashUpModal');
+      modal.classList.add('show');
+      
+      try {
+        const shiftRes = await fetch(`${API_URL}/cash-up/active-shift`, { 
+          headers: { 'Authorization': `Bearer ${token}` } 
+        });
+        const shiftData = await shiftRes.json();
+        
+        if (!shiftData || !shiftData.has_shift) {
+          const float = prompt('Enter starting float amount for your shift (e.g., 200):');
+          if (!float || isNaN(float)) {
+            closeCashUp();
+            return;
+          }
+          
+          await fetch(`${API_URL}/cash-up/shifts/start`, { 
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ starting_float: parseFloat(float) }) 
+          });
+          
+          document.getElementById('shiftFloat').textContent = 'P' + parseFloat(float).toFixed(2);
+          document.getElementById('shiftExpectedCash').textContent = 'P' + parseFloat(float).toFixed(2);
+          document.getElementById('shiftCardTotal').textContent = 'P0.00';
+          document.getElementById('cashUpShiftId').value = 'new';
+        } else {
+          const float = shiftData.shift?.starting_float || 0;
+          const expected = (shiftData.expected_cash || 0) + float;
+          document.getElementById('shiftFloat').textContent = 'P' + float.toFixed(2);
+          document.getElementById('shiftExpectedCash').textContent = 'P' + expected.toFixed(2);
+          document.getElementById('shiftCardTotal').textContent = 'P' + (shiftData.card_total || 0).toFixed(2);
+          document.getElementById('cashUpShiftId').value = shiftData.shift?.id || 'new';
+        }
+        
+        const denomRes = await fetch(`${API_URL}/cash-up/denominations`, { 
+          headers: { 'Authorization': `Bearer ${token}` } 
+        });
+        const denominations = await denomRes.json();
+        renderDenominations(denominations);
+      } catch (err) {
+        alert('Error: ' + err.message);
+        closeCashUp();
+      }
+    }
+
+    function renderDenominations(denoms) {
+      const coins = denoms.filter(d => d.type === 'coin');
+      const notes = denoms.filter(d => d.type === 'note');
+      
+      let html = '<h4 style="margin-bottom:0.5rem;color:#888">Coins</h4><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0.5rem">';
+      coins.forEach(d => {
+        html += `<div class="form-group"><label style="font-size:0.75rem;display:flex;justify-content:space-between"><span>${d.label}</span></label><input type="number" class="denom-input" data-denom="${d.value}" placeholder="0" min="0" value="0" style="width:100%;padding:10px;background:#1a1a2e;border:1px solid #333;border-radius:6px;color:#fff;text-align:center"></div>`;
+      });
+      html += '</div><h4 style="margin:1rem 0 0.5rem;color:#888">Notes</h4><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0.5rem">';
+      notes.forEach(d => {
+        html += `<div class="form-group"><label style="font-size:0.75rem">${d.label}</label><input type="number" class="denom-input" data-denom="${d.value}" placeholder="0" min="0" value="0" style="width:100%;padding:10px;background:#1a1a2e;border:1px solid #333;border-radius:6px;color:#fff;text-align:center"></div>`;
+      });
+      html += '</div>';
+      
+      document.getElementById('denominationsContainer').innerHTML = html;
+      
+      setTimeout(() => {
+        document.querySelectorAll('.denom-input').forEach(input => {
+          input.addEventListener('input', updateCashUpSummary);
+        });
+      }, 100);
+    }
+
+    function calculateActualCash() {
+      let total = 0;
+      document.querySelectorAll('.denom-input').forEach(input => {
+        const qty = parseInt(input.value) || 0;
+        const denom = parseFloat(input.dataset.denom);
+        total += qty * denom;
+      });
+      return total;
+    }
+
+    function updateCashUpSummary() {
+      const actualCash = calculateActualCash();
+      const cardAmount = parseFloat(document.getElementById('cardAmount')?.value) || 0;
+      const chequeAmount = parseFloat(document.getElementById('chequeAmount')?.value) || 0;
+      
+      const expectedCash = parseFloat(document.getElementById('shiftExpectedCash').textContent.replace('P', '')) || 0;
+      const variance = actualCash - expectedCash;
+      
+      document.getElementById('actualCashDisplay').textContent = 'P' + actualCash.toFixed(2);
+      document.getElementById('varianceDisplay').textContent = 'P' + variance.toFixed(2);
+      document.getElementById('varianceDisplay').style.color = variance === 0 ? '#4ade80' : variance > 0 ? '#60a5fa' : '#ef4444';
+    }
+
+    async function submitCashUp() {
+      const shiftId = document.getElementById('cashUpShiftId').value;
+      if (!shiftId) return alert('No active shift');
+      
+      const denominations = [];
+      document.querySelectorAll('.denom-input').forEach(input => {
+        const qty = parseInt(input.value) || 0;
+        if (qty > 0) {
+          denominations.push({
+            denomination: parseFloat(input.dataset.denom),
+            quantity: qty
+          });
+        }
+      });
+      
+      const cardAmount = parseFloat(document.getElementById('cardAmount').value) || 0;
+      const chequeAmount = parseFloat(document.getElementById('chequeAmount').value) || 0;
+      const notes = document.getElementById('cashUpNotes').value;
+      
+      try {
+        const res = await fetch(`${API_URL}/cash-up`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            shift_id: shiftId === 'new' ? undefined : shiftId,
+            denominations,
+            card_amount: cardAmount,
+            cheque_amount: chequeAmount,
+            payouts: [],
+            notes
+          })
+        });
+        
+        const result = await res.json();
+        if (!res.ok) throw new Error(result.error);
+        
+        const varianceColor = result.variance === 0 ? '#4ade80' : result.variance > 0 ? '#60a5fa' : '#ef4444';
+        const varianceText = result.variance === 0 ? 'BALANCED' : result.variance > 0 ? 'OVER' : 'SHORT';
+        
+        document.getElementById('cashUpModal').querySelector('.modal-content').innerHTML = `
+          <h3>Cash-Up Complete!</h3>
+          <div style="padding:1.5rem;background:#0f0f23;border-radius:8px;margin:1rem 0">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem">
+              <div><span style="color:#888">Expected</span><div style="font-size:1.3rem">P${result.expected_cash.toFixed(2)}</div></div>
+              <div><span style="color:#888">Actual</span><div style="font-size:1.3rem;color:#4ade80">P${result.actual_cash.toFixed(2)}</div></div>
+            </div>
+            <div style="text-align:center;padding:1rem;border-top:1px solid #333">
+              <span style="color:#888">Variance</span>
+              <div style="font-size:2rem;font-weight:bold;color:${varianceColor}">P${result.variance.toFixed(2)}</div>
+              <div style="color:${varianceColor};font-weight:bold">${varianceText}</div>
+            </div>
+          </div>
+          <button class="btn btn-primary" style="width:100%;padding:1rem" onclick="closeCashUp()">Close</button>
+        `;
+      } catch (err) {
+        alert(err.message);
+      }
+    }
+
+    function closeCashUp() {
+      document.getElementById('cashUpModal').classList.remove('show');
     }
 
     init();

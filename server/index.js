@@ -12,6 +12,10 @@ import suppliersRoutes from './routes/suppliers.js';
 import purchaseOrdersRoutes from './routes/purchaseOrders.js';
 import grvRoutes from './routes/grv.js';
 import reorderRoutes from './routes/reorder.js';
+import auditRoutes from './routes/audit.js';
+import stockAdjustmentsRoutes from './routes/stockAdjustments.js';
+import blindCountsRoutes from './routes/blindCounts.js';
+import cashUpRoutes from './routes/cashUp.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -44,6 +48,10 @@ app.use('/api/suppliers', suppliersRoutes);
 app.use('/api/purchase-orders', purchaseOrdersRoutes);
 app.use('/api/grv', grvRoutes);
 app.use('/api/reorder', reorderRoutes);
+app.use('/api/audit', auditRoutes);
+app.use('/api/stock', stockAdjustmentsRoutes);
+app.use('/api/blind-counts', blindCountsRoutes);
+app.use('/api/cash-up', cashUpRoutes);
 
 app.listen(PORT, () => {
   console.log(`POS Server running at http://localhost:${PORT}`);

@@ -156,6 +156,116 @@ export function initializeDatabase() {
   try { db.exec(`ALTER TABLE products ADD COLUMN price_per_unit REAL DEFAULT 0`); } catch(e) {}
   try { db.exec(`ALTER TABLE products ADD COLUMN unit_measure TEXT DEFAULT 'each'`); } catch(e) {}
 
+  try { db.exec(`CREATE TABLE IF NOT EXISTS audit_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    action_type TEXT NOT NULL,
+    product_id INTEGER,
+    quantity_change INTEGER,
+    old_value TEXT,
+    new_value TEXT,
+    user_id INTEGER,
+    reason TEXT,
+    reference_type TEXT,
+    reference_id INTEGER,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (product_id) REFERENCES products(id),
+    FOREIGN KEY (user_id) REFERENCES employees(id)
+  )`); } catch(e) {}
+
+  try { db.exec(`CREATE TABLE IF NOT EXISTS adjustment_requests (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    product_id INTEGER NOT NULL,
+    requested_by INTEGER NOT NULL,
+    current_stock INTEGER NOT NULL,
+    new_stock INTEGER NOT NULL,
+    reason TEXT NOT NULL,
+    status TEXT DEFAULT 'pending',
+    approved_by INTEGER,
+    approved_at DATETIME,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (product_id) REFERENCES products(id),
+    FOREIGN KEY (requested_by) REFERENCES employees(id),
+    FOREIGN KEY (approved_by) REFERENCES employees(id)
+  )`); } catch(e) {}
+
+  try { db.exec(`CREATE TABLE IF NOT EXISTS blind_counts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    count_date DATE NOT NULL,
+    counted_by INTEGER NOT NULL,
+    status TEXT DEFAULT 'pending',
+    notes TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    completed_at DATETIME,
+    FOREIGN KEY (counted_by) REFERENCES employees(id)
+  )`); } catch(e) {}
+
+  try { db.exec(`CREATE TABLE IF NOT EXISTS blind_count_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    blind_count_id INTEGER NOT NULL,
+    product_id INTEGER NOT NULL,
+    physical_count INTEGER,
+    system_count INTEGER,
+    variance INTEGER,
+    FOREIGN KEY (blind_count_id) REFERENCES blind_counts(id) ON DELETE CASCADE,
+    FOREIGN KEY (product_id) REFERENCES products(id)
+  )`); } catch(e) {}
+
+  try { db.exec(`CREATE TABLE IF NOT EXISTS shifts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    employee_id INTEGER NOT NULL,
+    start_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+    end_time DATETIME,
+    starting_float REAL DEFAULT 0,
+    status TEXT DEFAULT 'open',
+    FOREIGN KEY (employee_id) REFERENCES employees(id)
+  )`); } catch(e) {}
+
+  try { db.exec(`CREATE TABLE IF NOT EXISTS cash_ups (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    shift_id INTEGER NOT NULL,
+    employee_id INTEGER NOT NULL,
+    expected_cash REAL DEFAULT 0,
+    actual_cash REAL DEFAULT 0,
+    card_amount REAL DEFAULT 0,
+    cheque_amount REAL DEFAULT 0,
+    payouts REAL DEFAULT 0,
+    variance REAL DEFAULT 0,
+    notes TEXT,
+    status TEXT DEFAULT 'pending',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (shift_id) REFERENCES shifts(id),
+    FOREIGN KEY (employee_id) REFERENCES employees(id)
+  )`); } catch(e) {}
+
+  try { db.exec(`CREATE TABLE IF NOT EXISTS cash_up_denominations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    cash_up_id INTEGER NOT NULL,
+    denomination REAL NOT NULL,
+    quantity INTEGER DEFAULT 0,
+    total REAL DEFAULT 0,
+    FOREIGN KEY (cash_up_id) REFERENCES cash_ups(id) ON DELETE CASCADE
+  )`); } catch(e) {}
+
+  try { db.exec(`CREATE TABLE IF NOT EXISTS cash_up_payouts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    cash_up_id INTEGER NOT NULL,
+    reason TEXT NOT NULL,
+    amount REAL DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (cash_up_id) REFERENCES cash_ups(id) ON DELETE CASCADE
+  )`); } catch(e) {}
+
+  try { db.exec(`CREATE TABLE IF NOT EXISTS payouts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    shift_id INTEGER NOT NULL,
+    amount REAL NOT NULL,
+    reason TEXT,
+    created_by INTEGER NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (shift_id) REFERENCES shifts(id),
+    FOREIGN KEY (created_by) REFERENCES employees(id)
+  )`); } catch(e) {}
+
   const adminExists = db.prepare('SELECT id FROM employees WHERE username = ?').get('admin');
   if (!adminExists) {
     const password_hash = bcrypt.hashSync('admin123', 10);
