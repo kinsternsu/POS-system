@@ -52,6 +52,11 @@ router.get('/active-shift', authenticateToken, (req, res) => {
       SELECT SUM(total) as total FROM transactions 
       WHERE employee_id = ? AND DATE(created_at) = DATE(?) AND payment_method = 'card'
     `).get(req.user.id, shift.start_time);
+
+    const chequeSales = db.prepare(`
+      SELECT SUM(total) as total FROM transactions 
+      WHERE employee_id = ? AND DATE(created_at) = DATE(?) AND payment_method = 'cheque'
+    `).get(req.user.id, shift.start_time);
     
     const expectedCash = (cashSales?.total || 0) - (payouts?.total || 0);
     
@@ -60,7 +65,8 @@ router.get('/active-shift', authenticateToken, (req, res) => {
       shift,
       payouts_total: payouts?.total || 0,
       expected_cash: expectedCash,
-      card_total: cardSales?.total || 0
+      card_total: cardSales?.total || 0,
+      cheque_total: chequeSales?.total || 0
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -151,7 +157,7 @@ router.post('/payouts', authenticateToken, (req, res) => {
 
 router.post('/', authenticateToken, (req, res) => {
   try {
-    const { shift_id, denominations, payouts: payoutList, card_amount, cheque_amount, notes } = req.body;
+    const { shift_id, denominations, payouts: payoutList, card_amount, cheque_amount, card_receipts, cheques, notes } = req.body;
     
     const shift = db.prepare('SELECT * FROM shifts WHERE id = ?').get(shift_id);
     if (!shift) {
@@ -205,6 +211,24 @@ router.post('/', authenticateToken, (req, res) => {
       `);
       for (const p of payoutList) {
         insertPayout.run(cash_up_id, p.reason || '', p.amount);
+      }
+    }
+
+    if (card_receipts) {
+      const insertCard = db.prepare(`
+        INSERT INTO cash_up_card_receipts (cash_up_id, amount) VALUES (?, ?)
+      `);
+      for (const r of card_receipts) {
+        if (r.amount > 0) insertCard.run(cash_up_id, r.amount);
+      }
+    }
+
+    if (cheques) {
+      const insertCheque = db.prepare(`
+        INSERT INTO cash_up_cheques (cash_up_id, amount) VALUES (?, ?)
+      `);
+      for (const c of cheques) {
+        if (c.amount > 0) insertCheque.run(cash_up_id, c.amount);
       }
     }
     
@@ -261,8 +285,16 @@ router.get('/:id', authenticateToken, (req, res) => {
     const payoutRecords = db.prepare(`
       SELECT * FROM cash_up_payouts WHERE cash_up_id = ?
     `).all(req.params.id);
+
+    const cardReceipts = db.prepare(`
+      SELECT * FROM cash_up_card_receipts WHERE cash_up_id = ?
+    `).all(req.params.id);
+
+    const chequeRecords = db.prepare(`
+      SELECT * FROM cash_up_cheques WHERE cash_up_id = ?
+    `).all(req.params.id);
     
-    res.json({ ...cashUp, denominations, payout_records: payoutRecords });
+    res.json({ ...cashUp, denominations, payout_records: payoutRecords, card_receipts: cardReceipts, cheques: chequeRecords });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

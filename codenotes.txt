@@ -1,8 +1,0 @@
-Automated Reordering Logic
-A robust engine removes human guesswork by using automated reorder points: 
-Rural Mutual Insurance Company
-Rural Mutual Insurance Company
- +1
-Thresholds: You set a "minimum stock level" for each product.
-Triggers: When stock hits that level, the engine can automatically generate a Purchase Order (PO) and notify your supplier.
-Replenishment: Once the shipment arrives, scanning the new goods (Goods Received Voucher) instantly updates the stock count and reconciles it against the PO. 

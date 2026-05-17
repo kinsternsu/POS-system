@@ -1270,17 +1270,41 @@
         });
         const cashUp = await res.json();
         
-        let html = `<div style="padding:1rem;background:#1a1a2e;border-radius:8px;max-width:400px">
+        let html = `<div style="padding:1rem;background:#1a1a2e;border-radius:8px;max-width:450px">
           <h3>Cash-Up Details</h3>
           <p><strong>Date:</strong> ${new Date(cashUp.created_at).toLocaleString()}</p>
           <p><strong>Employee:</strong> ${cashUp.employee_name || '-'}</p>
           <p><strong>Expected Cash:</strong> P${(cashUp.expected_cash || 0).toFixed(2)}</p>
           <p><strong>Actual Cash:</strong> P${(cashUp.actual_cash || 0).toFixed(2)}</p>
-          <p><strong>Card Amount:</strong> P${(cashUp.card_amount || 0).toFixed(2)}</p>
-          <p><strong>Cheque Amount:</strong> P${(cashUp.cheque_amount || 0).toFixed(2)}</p>
+          <p><strong>Card Total:</strong> P${(cashUp.card_amount || 0).toFixed(2)}</p>
+          <p><strong>Cheque Total:</strong> P${(cashUp.cheque_amount || 0).toFixed(2)}</p>
           <p><strong>Payouts:</strong> P${(cashUp.payouts || 0).toFixed(2)}</p>
           <p><strong>Variance:</strong> P${(cashUp.variance || 0).toFixed(2)}</p>`;
-        
+
+        if (cashUp.card_receipts && cashUp.card_receipts.length > 0) {
+          html += '<h4 style="margin-top:1rem">Card Receipts:</h4><table style="width:100%"><tr><th>#</th><th>Amount</th></tr>';
+          cashUp.card_receipts.forEach((r, i) => {
+            html += `<tr><td>${i + 1}</td><td>P${r.amount.toFixed(2)}</td></tr>`;
+          });
+          html += '</table>';
+        }
+
+        if (cashUp.cheques && cashUp.cheques.length > 0) {
+          html += '<h4 style="margin-top:1rem">Cheques:</h4><table style="width:100%"><tr><th>#</th><th>Amount</th></tr>';
+          cashUp.cheques.forEach((c, i) => {
+            html += `<tr><td>${i + 1}</td><td>P${c.amount.toFixed(2)}</td></tr>`;
+          });
+          html += '</table>';
+        }
+
+        if (cashUp.payout_records && cashUp.payout_records.length > 0) {
+          html += '<h4 style="margin-top:1rem">Payouts:</h4><table style="width:100%"><tr><th>Reason</th><th>Amount</th></tr>';
+          cashUp.payout_records.forEach(p => {
+            html += `<tr><td>${p.reason || '-'}</td><td style="color:#ef4444">-P${p.amount.toFixed(2)}</td></tr>`;
+          });
+          html += '</table>';
+        }
+
         if (cashUp.denominations && cashUp.denominations.length > 0) {
           html += '<h4>Denominations:</h4><table style="width:100%"><tr><th>Denomination</th><th>Qty</th><th>Total</th></tr>';
           cashUp.denominations.forEach(d => {

@@ -59,6 +59,8 @@
     .cash-btn:hover { background: #22c55e; }
     .card-btn { padding: 1rem; background: #60a5fa; color: #000; border: none; border-radius: 8px; font-size: 1.1rem; font-weight: 600; cursor: pointer; transition: 0.2s; }
     .card-btn:hover { background: #3b82f6; }
+    .cheque-btn { padding: 1rem; background: #f59e0b; color: #000; border: none; border-radius: 8px; font-size: 1.1rem; font-weight: 600; cursor: pointer; transition: 0.2s; }
+    .cheque-btn:hover { background: #d97706; }
     .payment-cancel { background: #333; color: #fff; width: 100%; padding: 1rem; border: none; border-radius: 8px; cursor: pointer; }
     .payment-cancel:hover { background: #444; }
     .receipt { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #fff; color: #000; z-index: 2000; align-items: center; justify-content: center; }
@@ -118,9 +120,10 @@
       <button class="clear-btn" onclick="clearCart()">Clear Cart</button>
       <button class="clear-btn" onclick="openReturn()" style="background:#9333ea;margin-top:0.5rem">↩ Process Return</button>
       <button class="clear-btn" onclick="openCashUp()" style="background:#f59e0b;margin-top:0.5rem" id="cashUpBtn">💰 Cash-Up</button>
+      <button class="clear-btn" onclick="openPayout()" style="background:#ef4444;margin-top:0.5rem">💸 Payout</button>
     </div>
   </div>
-
+  
   <div class="payment-modal" id="paymentModal">
     <div class="payment-content">
       <h3>Select Payment Method</h3>
@@ -140,40 +143,90 @@
       <div id="paymentMethods" class="payment-buttons">
         <button class="cash-btn" onclick="selectCash()">Cash</button>
         <button class="card-btn" onclick="processPayment('card')">Card</button>
+        <button class="cheque-btn" onclick="processPayment('cheque')">Cheque</button>
       </div>
       <button class="payment-cancel" onclick="closePayment()">Cancel</button>
     </div>
   </div>
 
   <div class="receipt" id="receipt"></div>
+  <div class="receipt" id="payoutReceipt"></div>
+
+  <div class="payment-modal" id="payoutModal">
+    <div class="payment-content">
+      <h3>Payout</h3>
+      <div class="form-group">
+        <label>Amount (P)</label>
+        <input type="number" id="payoutAmount" step="0.01" placeholder="0.00" style="width:100%;padding:12px;background:#0f0f23;border:1px solid #333;border-radius:8px;color:#fff;font-size:1.1rem">
+      </div>
+      <div class="form-group" style="margin-top:1rem">
+        <label>Reason</label>
+        <input type="text" id="payoutReason" placeholder="e.g. Miscellaneous payment" style="width:100%;padding:12px;background:#0f0f23;border:1px solid #333;border-radius:8px;color:#fff;font-size:1rem">
+      </div>
+      <div style="display:flex;gap:1rem;margin-top:1.5rem">
+        <button class="btn btn-secondary" style="flex:1" onclick="closePayout()">Cancel</button>
+        <button class="btn btn-primary" style="flex:1;background:#ef4444" onclick="submitPayout()">Submit Payout</button>
+      </div>
+    </div>
+  </div>
 
   <div class="payment-modal" id="cashUpModal">
-    <div class="modal-content" style="width:500px">
+    <div class="modal-content" style="width:700px">
       <h3>Cash-Up / Till Reconciliation</h3>
       <input type="hidden" id="cashUpShiftId">
       
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;padding:1rem;background:#0f0f23;border-radius:8px">
-        <div><label style="color:#888;font-size:0.8rem">Starting Float</label><div id="shiftFloat" style="font-size:1.2rem;font-weight:bold">P0.00</div></div>
-        <div><label style="color:#888;font-size:0.8rem">Expected Cash</label><div id="shiftExpectedCash" style="font-size:1.2rem;font-weight:bold;color:#60a5fa">P0.00</div></div>
-        <div><label style="color:#888;font-size:0.8rem">Card Total</label><div id="shiftCardTotal" style="font-size:1.2rem;font-weight:bold;color:#a855f7">P0.00</div></div>
-        <div><label style="color:#888;font-size:0.8rem">Actual Cash</label><div id="actualCashDisplay" style="font-size:1.2rem;font-weight:bold;color:#4ade80">P0.00</div></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+        <div>
+          <div style="max-height:260px;overflow-y:auto" id="denominationsContainer"></div>
+          <div class="form-group" style="margin-top:1rem">
+            <label>Card Receipts</label>
+            <div id="cardReceiptsList"></div>
+            <div style="display:flex;gap:0.5rem;margin-top:0.5rem">
+              <input type="number" id="newCardReceipt" step="0.01" placeholder="Amount" style="flex:1;padding:8px;background:#0f0f23;border:1px solid #333;border-radius:6px;color:#fff">
+              <button class="btn btn-sm btn-secondary" onclick="addCardReceipt()" style="padding:4px 12px;font-size:0.8rem">+</button>
+            </div>
+            <div style="margin-top:0.5rem;font-size:0.9rem;color:#a855f7">Total: P<span id="cardReceiptsTotal">0.00</span></div>
+          </div>
+        </div>
+        <div>
+          <div style="padding:0.75rem;background:#0f0f23;border-radius:8px;margin-bottom:1rem">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem">
+              <div><label style="color:#888;font-size:0.75rem">Starting Float</label><div id="shiftFloat" style="font-size:1.1rem;font-weight:bold">P0.00</div></div>
+              <div><label style="color:#888;font-size:0.75rem">Expected Cash</label><div id="shiftExpectedCash" style="font-size:1.1rem;font-weight:bold;color:#60a5fa">P0.00</div></div>
+              <div><label style="color:#888;font-size:0.75rem">Card Total</label><div id="shiftCardTotal" style="font-size:1.1rem;font-weight:bold;color:#a855f7">P0.00</div></div>
+              <div><label style="color:#888;font-size:0.75rem">Cheque Total</label><div id="shiftChequeTotal" style="font-size:1.1rem;font-weight:bold;color:#f59e0b">P0.00</div></div>
+              <div><label style="color:#888;font-size:0.75rem">Actual Cash</label><div id="actualCashDisplay" style="font-size:1.1rem;font-weight:bold;color:#4ade80">P0.00</div></div>
+              <div><label style="color:#888;font-size:0.75rem">Payouts Total</label><div id="shiftPayoutsTotal" style="font-size:1.1rem;font-weight:bold;color:#ef4444">P0.00</div></div>
+            </div>
+          </div>
+          <div class="form-group" style="margin-bottom:0.75rem">
+            <label>Payouts This Shift</label>
+            <div id="payoutsList" style="max-height:100px;overflow-y:auto;margin-bottom:0.5rem"></div>
+          </div>
+          <div class="form-group">
+            <label>Cheques</label>
+            <div id="chequesList"></div>
+            <div style="display:flex;gap:0.5rem;margin-top:0.5rem">
+              <input type="number" id="newCheque" step="0.01" placeholder="Amount" style="flex:1;padding:8px;background:#0f0f23;border:1px solid #333;border-radius:6px;color:#fff">
+              <button class="btn btn-sm btn-secondary" onclick="addCheque()" style="padding:4px 12px;font-size:0.8rem">+</button>
+            </div>
+            <div style="margin-top:0.5rem;font-size:0.9rem;color:#f59e0b">Total: P<span id="chequesTotal">0.00</span></div>
+          </div>
+        </div>
       </div>
       
-      <div style="max-height:300px;overflow-y:auto" id="denominationsContainer"></div>
-      
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin:1rem 0">
-        <div class="form-group"><label>Card Amount (P)</label><input type="number" id="cardAmount" step="0.01" placeholder="0.00" style="width:100%;padding:10px;background:#0f0f23;border:1px solid #333;border-radius:6px;color:#fff" oninput="updateCashUpSummary()"></div>
-        <div class="form-group"><label>Cheque Amount (P)</label><input type="number" id="chequeAmount" step="0.01" placeholder="0.00" style="width:100%;padding:10px;background:#0f0f23;border:1px solid #333;border-radius:6px;color:#fff" oninput="updateCashUpSummary()"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-top:1rem">
+        <div style="padding:0.75rem;background:#0f0f23;border-radius:8px;text-align:center">
+          <label style="color:#888;font-size:0.85rem">Variance</label>
+          <div id="varianceDisplay" style="font-size:1.8rem;font-weight:bold">P0.00</div>
+        </div>
+        <div class="form-group">
+          <label>Notes</label>
+          <textarea id="cashUpNotes" placeholder="Optional notes..." style="width:100%;padding:8px;background:#0f0f23;border:1px solid #333;border-radius:6px;color:#fff;height:60px;resize:none"></textarea>
+        </div>
       </div>
       
-      <div style="padding:1rem;background:#0f0f23;border-radius:8px;margin-bottom:1rem;text-align:center">
-        <label style="color:#888;font-size:0.9rem">Variance</label>
-        <div id="varianceDisplay" style="font-size:2rem;font-weight:bold">P0.00</div>
-      </div>
-      
-      <div class="form-group"><label>Notes</label><textarea id="cashUpNotes" placeholder="Optional notes..." style="width:100%;padding:10px;background:#0f0f23;border:1px solid #333;border-radius:6px;color:#fff;height:60px"></textarea></div>
-      
-      <div style="display:flex;gap:1rem">
+      <div style="display:flex;gap:1rem;margin-top:1rem">
         <button class="btn btn-secondary" style="flex:1" onclick="closeCashUp()">Cancel</button>
         <button class="btn btn-primary" style="flex:1;background:#4ade80" onclick="submitCashUp()">Submit Cash-Up</button>
       </div>
@@ -756,6 +809,13 @@
       const modal = document.getElementById('cashUpModal');
       modal.classList.add('show');
       
+      document.getElementById('cardReceiptsList').innerHTML = '';
+      document.getElementById('chequesList').innerHTML = '';
+      document.getElementById('newCardReceipt').value = '';
+      document.getElementById('newCheque').value = '';
+      document.getElementById('cardReceiptsTotal').textContent = '0.00';
+      document.getElementById('chequesTotal').textContent = '0.00';
+      
       try {
         const shiftRes = await fetch(`${API_URL}/cash-up/active-shift`, { 
           headers: { 'Authorization': `Bearer ${token}` } 
@@ -778,6 +838,9 @@
           document.getElementById('shiftFloat').textContent = 'P' + parseFloat(float).toFixed(2);
           document.getElementById('shiftExpectedCash').textContent = 'P' + parseFloat(float).toFixed(2);
           document.getElementById('shiftCardTotal').textContent = 'P0.00';
+          document.getElementById('shiftChequeTotal').textContent = 'P0.00';
+          document.getElementById('shiftPayoutsTotal').textContent = 'P0.00';
+          document.getElementById('payoutsList').innerHTML = '<div style="color:#666;font-size:0.85rem">No payouts this shift</div>';
           document.getElementById('cashUpShiftId').value = 'new';
         } else {
           const float = shiftData.shift?.starting_float || 0;
@@ -785,7 +848,11 @@
           document.getElementById('shiftFloat').textContent = 'P' + float.toFixed(2);
           document.getElementById('shiftExpectedCash').textContent = 'P' + expected.toFixed(2);
           document.getElementById('shiftCardTotal').textContent = 'P' + (shiftData.card_total || 0).toFixed(2);
+          document.getElementById('shiftChequeTotal').textContent = 'P' + (shiftData.cheque_total || 0).toFixed(2);
+          document.getElementById('shiftPayoutsTotal').textContent = 'P' + (shiftData.payouts_total || 0).toFixed(2);
           document.getElementById('cashUpShiftId').value = shiftData.shift?.id || 'new';
+          
+          loadPayoutsList(shiftData.shift?.id);
         }
         
         const denomRes = await fetch(`${API_URL}/cash-up/denominations`, { 
@@ -797,6 +864,92 @@
         alert('Error: ' + err.message);
         closeCashUp();
       }
+    }
+
+    async function loadPayoutsList(shiftId) {
+      if (!shiftId) return;
+      try {
+        const res = await fetch(`${API_URL}/cash-up/payouts?shift_id=${shiftId}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const payouts = await res.json();
+        const container = document.getElementById('payoutsList');
+        if (!payouts.length) {
+          container.innerHTML = '<div style="color:#666;font-size:0.85rem">No payouts this shift</div>';
+        } else {
+          container.innerHTML = payouts.map(p =>
+            `<div style="display:flex;justify-content:space-between;font-size:0.85rem;padding:2px 0;border-bottom:1px solid #1a1a2e">
+              <span style="color:#aaa">${p.reason || 'No reason'}</span>
+              <span style="color:#ef4444">-P${p.amount.toFixed(2)}</span>
+            </div>`
+          ).join('');
+        }
+      } catch (err) {
+        document.getElementById('payoutsList').innerHTML = '<div style="color:#666;font-size:0.85rem">Could not load payouts</div>';
+      }
+    }
+
+    function openPayout() {
+      document.getElementById('payoutModal').classList.add('show');
+      document.getElementById('payoutAmount').value = '';
+      document.getElementById('payoutReason').value = '';
+      document.getElementById('payoutAmount').focus();
+    }
+
+    function closePayout() {
+      document.getElementById('payoutModal').classList.remove('show');
+    }
+
+    async function submitPayout() {
+      const amount = parseFloat(document.getElementById('payoutAmount').value);
+      const reason = document.getElementById('payoutReason').value.trim();
+      
+      if (!amount || amount <= 0) return alert('Enter a valid amount');
+      if (!reason) return alert('Enter a reason for the payout');
+      
+      try {
+        const shiftRes = await fetch(`${API_URL}/cash-up/active-shift`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const shiftData = await shiftRes.json();
+        
+        if (!shiftData || !shiftData.has_shift) {
+          return alert('You need to start a shift first. Go to Cash-Up to begin your shift.');
+        }
+        
+        const res = await fetch(`${API_URL}/cash-up/payouts`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ shift_id: shiftData.shift.id, amount, reason })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        
+        closePayout();
+        showPayoutReceipt({ id: data.id, amount, reason, created_at: new Date().toISOString() });
+      } catch (err) {
+        alert(err.message);
+      }
+    }
+
+    function showPayoutReceipt(payout) {
+      const r = document.getElementById('payoutReceipt');
+      r.classList.add('show');
+      r.innerHTML = `
+        <div class="receipt-content">
+          <h2>PAYOUT RECEIPT</h2>
+          <p>Payout #${payout.id}</p>
+          <p>${new Date(payout.created_at).toLocaleString()}</p>
+          <div style="margin:1.5rem 0;border-top:1px dashed #999;border-bottom:1px dashed #999;padding:1rem 0;text-align:left">
+            <p style="display:flex;justify-content:space-between"><strong>Amount:</strong> <span style="color:#ef4444">P${payout.amount.toFixed(2)}</span></p>
+            <p style="margin-top:0.5rem"><strong>Reason:</strong> ${payout.reason}</p>
+          </div>
+          <div style="display:flex;gap:0.5rem">
+            <button class="close-receipt" onclick="document.getElementById('payoutReceipt').classList.remove('show')" style="flex:1">Close</button>
+            <button class="close-receipt" onclick="window.print()" style="flex:1;background:#007bff">Print</button>
+          </div>
+        </div>
+      `;
     }
 
     function renderDenominations(denoms) {
@@ -832,10 +985,76 @@
       return total;
     }
 
+    function calculateListTotal(containerId) {
+      let total = 0;
+      document.querySelectorAll(`#${containerId} .receipt-amount`).forEach(input => {
+        total += parseFloat(input.value) || 0;
+      });
+      return total;
+    }
+
+    function updateCardReceiptsTotal() {
+      const total = calculateListTotal('cardReceiptsList');
+      document.getElementById('cardReceiptsTotal').textContent = total.toFixed(2);
+      updateCashUpSummary();
+    }
+
+    function updateChequesTotal() {
+      const total = calculateListTotal('chequesList');
+      document.getElementById('chequesTotal').textContent = total.toFixed(2);
+      updateCashUpSummary();
+    }
+
+    function addCardReceipt() {
+      const input = document.getElementById('newCardReceipt');
+      const amount = parseFloat(input.value);
+      if (!amount || amount <= 0) return;
+      addReceiptItem('cardReceiptsList', amount, updateCardReceiptsTotal);
+      input.value = '';
+      input.focus();
+    }
+
+    function addCheque() {
+      const input = document.getElementById('newCheque');
+      const amount = parseFloat(input.value);
+      if (!amount || amount <= 0) return;
+      addReceiptItem('chequesList', amount, updateChequesTotal);
+      input.value = '';
+      input.focus();
+    }
+
+    function addReceiptItem(containerId, amount, updateFn) {
+      const container = document.getElementById(containerId);
+      const div = document.createElement('div');
+      div.style.cssText = 'display:flex;gap:0.5rem;margin-bottom:0.3rem;align-items:center';
+      div.innerHTML = `<span style="color:#888;font-size:0.85rem">P</span><input type="number" class="receipt-amount" step="0.01" value="${amount.toFixed(2)}" style="flex:1;padding:6px;background:#0f0f23;border:1px solid #333;border-radius:4px;color:#fff;font-size:0.85rem"><button onclick="this.parentElement.remove();${updateFn.name}()" style="background:#ef4444;border:none;border-radius:4px;color:#fff;cursor:pointer;padding:2px 8px;font-size:0.85rem">x</button>`;
+      container.appendChild(div);
+      div.querySelector('.receipt-amount').addEventListener('input', updateFn);
+      updateFn();
+    }
+
+    function getCardReceipts() {
+      const amounts = [];
+      document.querySelectorAll('#cardReceiptsList .receipt-amount').forEach(input => {
+        const val = parseFloat(input.value) || 0;
+        if (val > 0) amounts.push({ amount: val });
+      });
+      return amounts;
+    }
+
+    function getCheques() {
+      const amounts = [];
+      document.querySelectorAll('#chequesList .receipt-amount').forEach(input => {
+        const val = parseFloat(input.value) || 0;
+        if (val > 0) amounts.push({ amount: val });
+      });
+      return amounts;
+    }
+
     function updateCashUpSummary() {
       const actualCash = calculateActualCash();
-      const cardAmount = parseFloat(document.getElementById('cardAmount')?.value) || 0;
-      const chequeAmount = parseFloat(document.getElementById('chequeAmount')?.value) || 0;
+      const cardAmount = calculateListTotal('cardReceiptsList');
+      const chequeAmount = calculateListTotal('chequesList');
       
       const expectedCash = parseFloat(document.getElementById('shiftExpectedCash').textContent.replace('P', '')) || 0;
       const variance = actualCash - expectedCash;
@@ -860,8 +1079,10 @@
         }
       });
       
-      const cardAmount = parseFloat(document.getElementById('cardAmount').value) || 0;
-      const chequeAmount = parseFloat(document.getElementById('chequeAmount').value) || 0;
+      const cardAmount = calculateListTotal('cardReceiptsList');
+      const chequeAmount = calculateListTotal('chequesList');
+      const cardReceipts = getCardReceipts();
+      const cheques = getCheques();
       const notes = document.getElementById('cashUpNotes').value;
       
       try {
@@ -873,6 +1094,8 @@
             denominations,
             card_amount: cardAmount,
             cheque_amount: chequeAmount,
+            card_receipts: cardReceipts,
+            cheques: cheques,
             payouts: [],
             notes
           })
@@ -907,6 +1130,19 @@
     function closeCashUp() {
       document.getElementById('cashUpModal').classList.remove('show');
     }
+
+    document.getElementById('newCardReceipt').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') { e.preventDefault(); addCardReceipt(); }
+    });
+    document.getElementById('newCheque').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') { e.preventDefault(); addCheque(); }
+    });
+    document.getElementById('payoutAmount').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') { e.preventDefault(); document.getElementById('payoutReason').focus(); }
+    });
+    document.getElementById('payoutReason').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') { e.preventDefault(); submitPayout(); }
+    });
 
     init();
   </script>

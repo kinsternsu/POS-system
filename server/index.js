@@ -1,3 +1,4 @@
+import dotenv from 'dotenv';
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
@@ -18,10 +19,11 @@ import blindCountsRoutes from './routes/blindCounts.js';
 import cashUpRoutes from './routes/cashUp.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: path.join(__dirname, '.env') });
 
 const app = express();
-const PORT = 3000;
-const JWT_SECRET = 'pos_system_secret_key_2024';
+const PORT = process.env.PORT || 3000;
+const JWT_SECRET = process.env.JWT_SECRET || 'pos_system_secret_key_2024';
 
 process.env.JWT_SECRET = JWT_SECRET;
 

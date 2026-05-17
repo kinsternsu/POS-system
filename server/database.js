@@ -255,6 +255,22 @@ export function initializeDatabase() {
     FOREIGN KEY (cash_up_id) REFERENCES cash_ups(id) ON DELETE CASCADE
   )`); } catch(e) {}
 
+  try { db.exec(`CREATE TABLE IF NOT EXISTS cash_up_card_receipts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    cash_up_id INTEGER NOT NULL,
+    amount REAL NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (cash_up_id) REFERENCES cash_ups(id) ON DELETE CASCADE
+  )`); } catch(e) {}
+
+  try { db.exec(`CREATE TABLE IF NOT EXISTS cash_up_cheques (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    cash_up_id INTEGER NOT NULL,
+    amount REAL NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (cash_up_id) REFERENCES cash_ups(id) ON DELETE CASCADE
+  )`); } catch(e) {}
+
   try { db.exec(`CREATE TABLE IF NOT EXISTS payouts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     shift_id INTEGER NOT NULL,
