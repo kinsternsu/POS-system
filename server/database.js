@@ -135,6 +135,18 @@ export function initializeDatabase() {
     INSERT OR IGNORE INTO settings (key, value) VALUES ('store_name', 'My POS Store');
     INSERT OR IGNORE INTO settings (key, value) VALUES ('tax_rate', '0');
     INSERT OR IGNORE INTO settings (key, value) VALUES ('currency', 'USD');
+
+    CREATE TABLE IF NOT EXISTS promotions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      type TEXT NOT NULL CHECK(type IN ('percentage', 'fixed_amount')),
+      value REAL NOT NULL,
+      min_purchase REAL,
+      start_date TEXT,
+      end_date TEXT,
+      is_active INTEGER DEFAULT 1,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
   `);
 
   try { db.exec(`ALTER TABLE products ADD COLUMN reorder_point INTEGER`); } catch(e) {}
@@ -281,6 +293,12 @@ export function initializeDatabase() {
     FOREIGN KEY (shift_id) REFERENCES shifts(id),
     FOREIGN KEY (created_by) REFERENCES employees(id)
   )`); } catch(e) {}
+
+  try { db.exec(`ALTER TABLE transactions ADD COLUMN discount_type TEXT`); } catch(e) {}
+  try { db.exec(`ALTER TABLE transactions ADD COLUMN discount_value REAL`); } catch(e) {}
+  try { db.exec(`ALTER TABLE transactions ADD COLUMN discount_amount REAL DEFAULT 0`); } catch(e) {}
+  try { db.exec(`ALTER TABLE transactions ADD COLUMN promotion_id INTEGER`); } catch(e) {}
+  try { db.exec(`ALTER TABLE returns ADD COLUMN discount_amount REAL DEFAULT 0`); } catch(e) {}
 
   const adminExists = db.prepare('SELECT id FROM employees WHERE username = ?').get('admin');
   if (!adminExists) {

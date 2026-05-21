@@ -113,8 +113,31 @@
       <div class="cart-items" id="cartItems"></div>
       <div class="cart-summary">
         <div class="row"><span>Subtotal</span><span id="cartSubtotal">$0.00</span></div>
+        <div class="row" id="discountRow" style="display:none"><span>Discount</span><span id="cartDiscount" style="color:#4ade80">-$0.00</span></div>
         <div class="row"><span>Tax</span><span id="cartTax">$0.00</span></div>
         <div class="row total"><span>Total</span><span id="cartTotal">$0.00</span></div>
+        <div id="discountControls" style="margin-top:0.5rem;display:none">
+          <div style="display:flex;gap:0.25rem;flex-wrap:wrap;margin-bottom:0.25rem">
+            <button class="btn btn-sm" style="background:#333;color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:0.75rem" onclick="applyDiscount('percentage',5)">5%</button>
+            <button class="btn btn-sm" style="background:#333;color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:0.75rem" onclick="applyDiscount('percentage',10)">10%</button>
+            <button class="btn btn-sm" style="background:#333;color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:0.75rem" onclick="applyDiscount('percentage',15)">15%</button>
+            <button class="btn btn-sm" style="background:#333;color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:0.75rem" onclick="applyDiscount('percentage',20)">20%</button>
+          </div>
+          <div style="display:flex;gap:0.25rem">
+            <input type="number" id="customDiscountInput" placeholder="% or $" style="flex:1;padding:6px 10px;background:#0f0f23;border:1px solid #333;border-radius:4px;color:#fff;font-size:0.8rem">
+            <select id="customDiscountType" style="padding:6px;background:#0f0f23;border:1px solid #333;border-radius:4px;color:#fff;font-size:0.8rem">
+              <option value="percentage">%</option>
+              <option value="fixed_amount">$</option>
+            </select>
+            <button style="background:#e94560;color:#fff;border:none;padding:6px 12px;border-radius:4px;cursor:pointer;font-size:0.8rem" onclick="applyCustomDiscount()">Apply</button>
+          </div>
+          <div style="margin-top:0.25rem">
+            <button style="background:#9333ea;color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:0.75rem;width:100%" onclick="openPromoPicker()">Apply Promotion</button>
+          </div>
+          <div style="margin-top:0.25rem">
+            <button style="background:#333;color:#ef4444;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:0.75rem;width:100%" onclick="removeDiscount()">Remove Discount</button>
+          </div>
+        </div>
       </div>
       <button class="checkout-btn" onclick="openPayment()">Checkout</button>
       <button class="clear-btn" onclick="clearCart()">Clear Cart</button>
@@ -307,6 +330,16 @@
     </div>
   </div>
 
+  <div class="payment-modal" id="promoPickerModal">
+    <div class="payment-content" style="width:400px">
+      <h3>Select Promotion</h3>
+      <div id="promoList" style="max-height:300px;overflow-y:auto;margin-bottom:1rem">
+        <p style="color:#888;text-align:center;padding:1rem">Loading promotions...</p>
+      </div>
+      <button class="payment-cancel" onclick="closePromoPicker()">Cancel</button>
+    </div>
+  </div>
+
   <div class="payment-modal" id="returnModal">
     <div class="modal-content" style="width:400px;max-height:80vh;overflow-y:auto">
       <h3>↩ Process Return</h3>
@@ -350,6 +383,11 @@
     let settings = { tax_rate: 0 };
     let lastChange = 0;
     let paymentTotal = 0;
+    let discountType = null;
+    let discountValue = null;
+    let discountAmount = 0;
+    let selectedPromotionId = null;
+    let selectedPromotionName = null;
     
     window.onerror = function(msg, url, line) {
       alert('JS Error: ' + msg + ' line:' + line);
@@ -477,11 +515,20 @@
       renderCart();
     }
 
-    function clearCart() { cart = []; renderCart(); }
+    function clearCart() {
+      cart = [];
+      discountType = null;
+      discountValue = null;
+      discountAmount = 0;
+      selectedPromotionId = null;
+      selectedPromotionName = null;
+      renderCart();
+    }
 
     function renderCart() {
       if (!cart.length) {
         document.getElementById('cartItems').innerHTML = '<div class="empty-cart">Cart is empty</div>';
+        document.getElementById('discountControls').style.display = 'none';
       } else {
         document.getElementById('cartItems').innerHTML = cart.map(item => `
           <div class="cart-item">
@@ -499,14 +546,102 @@
             </div>
           </div>
         `).join('');
+        document.getElementById('discountControls').style.display = 'block';
       }
       const subtotal = cart.reduce((sum, item) => sum + item.price, 0);
-      const tax = subtotal * (settings.tax_rate || 0) / 100;
-      const total = subtotal + tax;
+      recalcDiscount(subtotal);
+      const discountAmt = discountAmount || 0;
+      const taxableAmount = subtotal - discountAmt;
+      const tax = taxableAmount * (settings.tax_rate || 0) / 100;
+      const total = taxableAmount + tax;
+      const discountRow = document.getElementById('discountRow');
+      if (discountAmt > 0) {
+        discountRow.style.display = 'flex';
+        document.getElementById('cartDiscount').textContent = '-$' + discountAmt.toFixed(2) + (selectedPromotionName ? ' (' + selectedPromotionName + ')' : '');
+      } else {
+        discountRow.style.display = 'none';
+      }
       document.getElementById('cartSubtotal').textContent = '$' + subtotal.toFixed(2);
       document.getElementById('cartTax').textContent = '$' + tax.toFixed(2);
       document.getElementById('cartTotal').textContent = '$' + total.toFixed(2);
       document.getElementById('paymentAmount').textContent = '$' + total.toFixed(2);
+    }
+
+    function recalcDiscount(subtotal) {
+      if (discountType === 'percentage') {
+        discountAmount = subtotal * (discountValue / 100);
+      } else if (discountType === 'fixed_amount') {
+        discountAmount = Math.min(discountValue, subtotal);
+      } else {
+        discountAmount = 0;
+      }
+    }
+
+    function applyDiscount(type, value) {
+      discountType = type;
+      discountValue = value;
+      selectedPromotionId = null;
+      selectedPromotionName = null;
+      renderCart();
+    }
+
+    function applyCustomDiscount() {
+      const input = document.getElementById('customDiscountInput');
+      const type = document.getElementById('customDiscountType').value;
+      const value = parseFloat(input.value);
+      if (!value || value <= 0) { alert('Enter a valid discount value'); return; }
+      if (type === 'percentage' && value > 100) { alert('Percentage must be ≤ 100'); return; }
+      discountType = type;
+      discountValue = value;
+      selectedPromotionId = null;
+      selectedPromotionName = null;
+      input.value = '';
+      renderCart();
+    }
+
+    function removeDiscount() {
+      discountType = null;
+      discountValue = null;
+      discountAmount = 0;
+      selectedPromotionId = null;
+      selectedPromotionName = null;
+      renderCart();
+    }
+
+    async function openPromoPicker() {
+      try {
+        const res = await fetch(`${API_URL}/promotions/active`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const promotions = await res.json();
+        const list = document.getElementById('promoList');
+        if (!promotions.length) {
+          list.innerHTML = '<p style="color:#888;text-align:center;padding:1rem">No active promotions available</p>';
+        } else {
+          list.innerHTML = promotions.map(p => `
+            <div style="padding:0.75rem;background:#0f0f23;border-radius:8px;margin-bottom:0.5rem;cursor:pointer" onclick="selectPromotion(${p.id},'${p.name.replace(/'/g, "\\'")}','${p.type}',${p.value})">
+              <div style="font-weight:500">${p.name}</div>
+              <div style="color:#888;font-size:0.85rem">${p.type === 'percentage' ? p.value + '% off' : '$' + p.value.toFixed(2) + ' off'}${p.min_purchase ? ' (min. $' + p.min_purchase.toFixed(2) + ')' : ''}</div>
+            </div>
+          `).join('');
+        }
+        document.getElementById('promoPickerModal').classList.add('show');
+      } catch (err) {
+        alert('Error loading promotions: ' + err.message);
+      }
+    }
+
+    function closePromoPicker() {
+      document.getElementById('promoPickerModal').classList.remove('show');
+    }
+
+    function selectPromotion(id, name, type, value) {
+      selectedPromotionId = id;
+      selectedPromotionName = name;
+      discountType = type;
+      discountValue = value;
+      closePromoPicker();
+      renderCart();
     }
 
     function openPayment() {
@@ -522,22 +657,36 @@
 
     async function processPayment(paymentMethod) {
       try {
+        const body = { items: cart, payment_method: paymentMethod };
+        if (selectedPromotionId) {
+          body.promotion_id = selectedPromotionId;
+        } else if (discountType && discountValue) {
+          body.discount_type = discountType;
+          body.discount_value = discountValue;
+        }
         const res = await fetch(`${API_URL}/transactions`, {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ items: cart, payment_method: paymentMethod })
+          body: JSON.stringify(body)
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error);
         showReceipt(data);
         cart = [];
+        discountType = null;
+        discountValue = null;
+        discountAmount = 0;
+        selectedPromotionId = null;
+        selectedPromotionName = null;
         renderCart();
         closePayment();
       } catch (err) { alert(err.message); }
     }
     
     function selectCash() {
-      paymentTotal = cart.reduce((sum, item) => sum + item.price, 0);
+      const subtotal = cart.reduce((sum, item) => sum + item.price, 0);
+      recalcDiscount(subtotal);
+      paymentTotal = subtotal - discountAmount;
       document.getElementById('paymentMethods').style.display = 'none';
       document.getElementById('cashPaymentSection').style.display = 'block';
       document.getElementById('cashReceived').value = '';
@@ -584,7 +733,8 @@
             `).join('')}
           </div>
           <div class="row"><span>Subtotal:</span><span>$${transaction.subtotal.toFixed(2)}</div>
-          <div class="row"><span>Tax:</span><span>$${transaction.tax.toFixed(2)}</div>
+          ${transaction.discount_amount ? `<div class="row" style="color:#4ade80"><span>Discount:</span><span>-$${transaction.discount_amount.toFixed(2)}</span></div>` : ''}
+          <div class="row"><span>Tax:</span><span>$${transaction.tax.toFixed(2)}</span></div>
           <div class="total">Total: $${transaction.total.toFixed(2)}</div>
           ${changeInfo}
           <p style="margin-top:1rem">Paid by: ${transaction.payment_method}</p>

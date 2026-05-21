@@ -39,7 +39,7 @@ router.get('/', authenticateToken, (req, res) => {
 
 router.post('/', authenticateToken, (req, res) => {
   try {
-    const { items, payment_method = 'cash' } = req.body;
+    const { items, payment_method = 'cash', discount_type, discount_value, promotion_id } = req.body;
     const employee_id = req.user.id;
     
     if (!items || !Array.isArray(items) || items.length === 0) {
@@ -74,8 +74,6 @@ router.post('/', authenticateToken, (req, res) => {
         unit_price = null;
       }
       
-      subtotal += itemTotal;
-      
       processedItems.push({
         product_id: product.id,
         name: product.name,
@@ -97,12 +95,59 @@ router.post('/', authenticateToken, (req, res) => {
       }
     }
     
-    const tax = subtotal * (taxRate / 100);
-    const total = subtotal + tax;
+    subtotal = processedItems.reduce((sum, item) => sum + item.total, 0);
+
+    let discountAmount = 0;
+    let resolvedDiscountType = discount_type || null;
+    let resolvedDiscountValue = discount_value || null;
+    let resolvedPromotionId = promotion_id || null;
+
+    if (promotion_id) {
+      const promotion = db.prepare(`
+        SELECT * FROM promotions WHERE id = ? AND is_active = 1
+          AND (start_date IS NULL OR start_date <= DATE('now'))
+          AND (end_date IS NULL OR end_date >= DATE('now'))
+      `).get(promotion_id);
+
+      if (!promotion) {
+        return res.status(400).json({ error: 'Promotion not found or not active' });
+      }
+
+      if (promotion.min_purchase && subtotal < promotion.min_purchase) {
+        return res.status(400).json({ error: `Minimum purchase of $${promotion.min_purchase} required for this promotion` });
+      }
+
+      resolvedDiscountType = promotion.type;
+      resolvedDiscountValue = promotion.value;
+
+      if (resolvedDiscountType === 'percentage') {
+        discountAmount = subtotal * (resolvedDiscountValue / 100);
+      } else {
+        discountAmount = Math.min(resolvedDiscountValue, subtotal);
+      }
+    } else if (discount_type && discount_value) {
+      if (discount_type === 'percentage') {
+        if (discount_value <= 0 || discount_value > 100) {
+          return res.status(400).json({ error: 'Percentage must be between 0 and 100' });
+        }
+        discountAmount = subtotal * (discount_value / 100);
+      } else if (discount_type === 'fixed_amount') {
+        if (discount_value <= 0) {
+          return res.status(400).json({ error: 'Fixed amount must be greater than 0' });
+        }
+        discountAmount = Math.min(discount_value, subtotal);
+      } else {
+        return res.status(400).json({ error: "discount_type must be 'percentage' or 'fixed_amount'" });
+      }
+    }
+    
+    const taxableAmount = subtotal - discountAmount;
+    const tax = taxableAmount * (taxRate / 100);
+    const total = taxableAmount + tax;
     
     const stmt = db.prepare(`
-      INSERT INTO transactions (employee_id, items, subtotal, tax, total, payment_method)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO transactions (employee_id, items, subtotal, tax, total, payment_method, discount_type, discount_value, discount_amount, promotion_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     
     const result = stmt.run(
@@ -111,13 +156,21 @@ router.post('/', authenticateToken, (req, res) => {
       subtotal,
       tax,
       total,
-      payment_method
+      payment_method,
+      resolvedDiscountType,
+      resolvedDiscountValue,
+      discountAmount,
+      resolvedPromotionId
     );
     
     res.json({ 
       id: result.lastInsertRowid,
       items: processedItems,
       subtotal,
+      discount_type: resolvedDiscountType,
+      discount_value: resolvedDiscountValue,
+      discount_amount: discountAmount,
+      promotion_id: resolvedPromotionId,
       tax,
       total,
       payment_method,
@@ -151,7 +204,8 @@ router.get('/stats', authenticateToken, (req, res) => {
         COUNT(*) as total_transactions,
         COALESCE(SUM(total), 0) as total_sales,
         COALESCE(SUM(subtotal), 0) as total_subtotal,
-        COALESCE(SUM(tax), 0) as total_tax
+        COALESCE(SUM(tax), 0) as total_tax,
+        COALESCE(SUM(discount_amount), 0) as total_discounts
       FROM transactions ${whereClause}
     `).get(...params);
     

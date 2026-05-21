@@ -87,9 +87,25 @@ router.post('/', authenticateToken, (req, res) => {
       }
     }
     
+    let discountAmount = 0;
+    if (original_transaction_id) {
+      const originalTx = db.prepare('SELECT discount_amount FROM transactions WHERE id = ?').get(original_transaction_id);
+      if (originalTx && originalTx.discount_amount > 0) {
+        const originalItems = db.prepare('SELECT items FROM transactions WHERE id = ?').get(original_transaction_id);
+        if (originalItems) {
+          const origItems = JSON.parse(originalItems.items);
+          const origTotal = origItems.reduce((sum, i) => sum + i.total, 0);
+          const refundTotal = processedItems.reduce((sum, i) => sum + i.total, 0);
+          if (origTotal > 0) {
+            discountAmount = originalTx.discount_amount * (refundTotal / origTotal);
+          }
+        }
+      }
+    }
+
     const stmt = db.prepare(`
-      INSERT INTO returns (original_transaction_id, employee_id, items, reason, status, refund_amount, payment_method)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO returns (original_transaction_id, employee_id, items, reason, status, refund_amount, payment_method, discount_amount)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `);
     
     const result = stmt.run(
@@ -99,13 +115,15 @@ router.post('/', authenticateToken, (req, res) => {
       reason,
       status,
       refund_amount,
-      payment_method
+      payment_method,
+      discountAmount
     );
     
     res.json({ 
       id: result.lastInsertRowid,
       items: processedItems,
       refund_amount,
+      discount_amount: discountAmount,
       reason,
       status,
       payment_method,
@@ -138,6 +156,7 @@ router.get('/stats', authenticateToken, (req, res) => {
       SELECT 
         COUNT(*) as total_returns,
         COALESCE(SUM(refund_amount), 0) as total_refunds,
+        COALESCE(SUM(discount_amount), 0) as total_discounts,
         SUM(CASE WHEN status = 'circulated' THEN 1 ELSE 0 END) as circulated_count,
         SUM(CASE WHEN status = 'damaged' THEN 1 ELSE 0 END) as damaged_count
       FROM returns ${whereClause}

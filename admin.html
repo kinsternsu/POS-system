@@ -71,6 +71,7 @@
     <div class="nav-item" data-section="adjustments">Stock Adjustments</div>
     <div class="nav-item" data-section="blind-counts">Blind Counts</div>
     <div class="nav-item" data-section="cash-ups">Cash-Ups</div>
+    <div class="nav-item" data-section="promotions">Promotions</div>
     <div class="nav-item" data-section="settings">Settings</div>
     <div class="nav-item" onclick="window.location.href='pos.html'" style="color:#4ade80">POS Terminal</div>
     <div class="user-info">
@@ -99,8 +100,8 @@
         <div class="value green" id="totalProducts">0</div>
       </div>
       <div class="stat-card">
-        <h3>Total Employees</h3>
-        <div class="value orange" id="totalEmployees">0</div>
+        <h3>Today's Discounts</h3>
+        <div class="value orange" id="todayDiscounts">$0.00</div>
       </div>
     </div>
 
@@ -108,7 +109,7 @@
       <h2 style="margin-bottom:1rem">Recent Transactions</h2>
       <table id="recentTransactions">
         <thead>
-          <tr><th>ID</th><th>Employee</th><th>Total</th><th>Payment</th><th>Date</th></tr>
+          <tr><th>ID</th><th>Employee</th><th>Total</th><th>Discount</th><th>Payment</th><th>Date</th></tr>
         </thead>
         <tbody></tbody>
       </table>
@@ -222,7 +223,7 @@
       </div>
       <table id="transactionsTable">
         <thead>
-          <tr><th>ID</th><th>Employee</th><th>Items</th><th>Subtotal</th><th>Tax</th><th>Total</th><th>Date</th></tr>
+          <tr><th>ID</th><th>Employee</th><th>Items</th><th>Subtotal</th><th>Discount</th><th>Tax</th><th>Total</th><th>Date</th></tr>
         </thead>
         <tbody></tbody>
       </table>
@@ -238,7 +239,7 @@
         </select>
         <button class="btn btn-secondary" onclick="loadReturns()">Filter</button>
       </div>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-bottom:1.5rem">
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:1.5rem">
         <div class="stat-card">
           <h3>Total Returns</h3>
           <div class="value" id="totalReturns">0</div>
@@ -248,6 +249,10 @@
           <div class="value orange" id="totalRefunds">$0.00</div>
         </div>
         <div class="stat-card">
+          <h3>Refund Discounts</h3>
+          <div class="value" style="color:#60a5fa" id="returnDiscounts">$0.00</div>
+        </div>
+        <div class="stat-card">
           <h3>Damaged Items</h3>
           <div class="value" style="color:#ef4444" id="damagedItems">0</div>
         </div>
@@ -255,6 +260,19 @@
       <table id="returnsTable">
         <thead>
           <tr><th>ID</th><th>Employee</th><th>Items</th><th>Refund</th><th>Reason</th><th>Status</th><th>Date</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div class="section" id="section-promotions">
+      <div class="header">
+        <h2>Promotions</h2>
+        <button class="btn btn-primary" onclick="openPromoModal()">+ Add Promotion</button>
+      </div>
+      <table id="promotionsTable">
+        <thead>
+          <tr><th>Name</th><th>Type</th><th>Value</th><th>Min Purchase</th><th>Start Date</th><th>End Date</th><th>Active</th><th>Actions</th></tr>
         </thead>
         <tbody></tbody>
       </table>
@@ -488,6 +506,47 @@
     </div>
   </div>
 
+  <div class="modal" id="promotionModal">
+    <div class="modal-content">
+      <h3 id="promoModalTitle">Add Promotion</h3>
+      <input type="hidden" id="promoId">
+      <div class="form-group">
+        <label>Promotion Name</label>
+        <input type="text" id="promoName">
+      </div>
+      <div class="form-group">
+        <label>Type</label>
+        <select id="promoType">
+          <option value="percentage">Percentage (%)</option>
+          <option value="fixed_amount">Fixed Amount ($)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Value</label>
+        <input type="number" id="promoValue" step="0.01" min="0">
+      </div>
+      <div class="form-group">
+        <label>Minimum Purchase ($) — optional</label>
+        <input type="number" id="promoMinPurchase" step="0.01" min="0">
+      </div>
+      <div class="form-group">
+        <label>Start Date — optional</label>
+        <input type="date" id="promoStartDate">
+      </div>
+      <div class="form-group">
+        <label>End Date — optional</label>
+        <input type="date" id="promoEndDate">
+      </div>
+      <div class="form-group">
+        <label><input type="checkbox" id="promoActive" checked> Active</label>
+      </div>
+      <div class="modal-buttons">
+        <button class="btn btn-secondary" onclick="closePromoModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="savePromotion()">Save</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     const API_URL = 'http://localhost:3000/api';
     let token = localStorage.getItem('pos_token');
@@ -533,7 +592,7 @@
         document.getElementById('todaySales').textContent = '$' + (stats.total_sales || 0).toFixed(2);
         document.getElementById('todayTransactions').textContent = stats.total_transactions || 0;
         document.getElementById('totalProducts').textContent = products.length;
-        document.getElementById('totalEmployees').textContent = employees.length;
+        document.getElementById('todayDiscounts').textContent = '$' + (stats.total_discounts || 0).toFixed(2);
         renderRecentTransactions(recent);
         document.getElementById('transactionDate').value = today;
       } catch (err) { console.error(err); }
@@ -541,9 +600,9 @@
 
     function renderRecentTransactions(transactions) {
       const tbody = document.querySelector('#recentTransactions tbody');
-      if (!transactions.length) { tbody.innerHTML = '<tr><td colspan="5" class="empty">No transactions today</td></tr>'; return; }
+      if (!transactions.length) { tbody.innerHTML = '<tr><td colspan="6" class="empty">No transactions today</td></tr>'; return; }
       tbody.innerHTML = transactions.map(t => `
-        <tr><td>#${t.id}</td><td>${t.employee_name}</td><td>$${t.total.toFixed(2)}</td><td>${t.payment_method}</td><td>${new Date(t.created_at).toLocaleTimeString()}</td></tr>
+        <tr><td>#${t.id}</td><td>${t.employee_name}</td><td>$${t.total.toFixed(2)}</td><td>${t.discount_amount ? '-$' + t.discount_amount.toFixed(2) : '-'}</td><td>${t.payment_method}</td><td>${new Date(t.created_at).toLocaleTimeString()}</td></tr>
       `).join('');
     }
 
@@ -749,11 +808,11 @@
       const date = document.getElementById('transactionDate').value;
       const transactions = await apiCall(`/transactions?limit=50&date=${date}`);
       const tbody = document.querySelector('#transactionsTable tbody');
-      if (!transactions.length) { tbody.innerHTML = '<tr><td colspan="7" class="empty">No transactions found</td></tr>'; return; }
+      if (!transactions.length) { tbody.innerHTML = '<tr><td colspan="8" class="empty">No transactions found</td></tr>'; return; }
       tbody.innerHTML = transactions.map(t => `
         <tr>
           <td>#${t.id}</td><td>${t.employee_name}</td><td>${t.items.length} items</td>
-          <td>$${t.subtotal.toFixed(2)}</td><td>$${t.tax.toFixed(2)}</td><td>$${t.total.toFixed(2)}</td>
+          <td>$${t.subtotal.toFixed(2)}</td><td>${t.discount_amount ? '-$' + t.discount_amount.toFixed(2) : '-'}</td><td>$${t.tax.toFixed(2)}</td><td>$${t.total.toFixed(2)}</td>
           <td>${new Date(t.created_at).toLocaleString()}</td>
         </tr>
       `).join('');
@@ -773,6 +832,7 @@
       
       document.getElementById('totalReturns').textContent = stats.total_returns || 0;
       document.getElementById('totalRefunds').textContent = '$' + (stats.total_refunds || 0).toFixed(2);
+      document.getElementById('returnDiscounts').textContent = '$' + (stats.total_discounts || 0).toFixed(2);
       document.getElementById('damagedItems').textContent = stats.damaged_count || 0;
       
       const tbody = document.querySelector('#returnsTable tbody');
@@ -1102,7 +1162,91 @@
     document.querySelectorAll('.nav-item')[9].addEventListener('click', loadAuditLogs);
     document.querySelectorAll('.nav-item')[10].addEventListener('click', loadAdjustmentRequests);
     document.querySelectorAll('.nav-item')[11].addEventListener('click', loadBlindCounts);
-    document.querySelectorAll('.nav-item')[12].addEventListener('click', loadSettings);
+    document.querySelectorAll('.nav-item')[12].addEventListener('click', loadCashUps);
+    document.querySelectorAll('.nav-item')[13].addEventListener('click', loadPromotions);
+    document.querySelectorAll('.nav-item')[14].addEventListener('click', loadSettings);
+
+    async function loadPromotions() {
+      const promotions = await apiCall('/promotions');
+      const tbody = document.querySelector('#promotionsTable tbody');
+      if (!promotions.length) { tbody.innerHTML = '<tr><td colspan="8" class="empty">No promotions defined</td></tr>'; return; }
+      tbody.innerHTML = promotions.map(p => `
+        <tr>
+          <td>${p.name}</td>
+          <td>${p.type === 'percentage' ? '%' : '$'}</td>
+          <td>${p.type === 'percentage' ? p.value + '%' : '$' + p.value.toFixed(2)}</td>
+          <td>${p.min_purchase ? '$' + p.min_purchase.toFixed(2) : '-'}</td>
+          <td>${p.start_date || '-'}</td>
+          <td>${p.end_date || '-'}</td>
+          <td><span class="badge ${p.is_active ? 'cashier' : 'admin'}">${p.is_active ? 'Active' : 'Inactive'}</span></td>
+          <td>
+            <button class="btn btn-sm btn-primary" onclick="editPromotion(${p.id})">Edit</button>
+            <button class="btn btn-sm btn-secondary" onclick="deletePromotion(${p.id})">Delete</button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function openPromoModal() {
+      document.getElementById('promoModalTitle').textContent = 'Add Promotion';
+      document.getElementById('promoId').value = '';
+      document.getElementById('promoName').value = '';
+      document.getElementById('promoType').value = 'percentage';
+      document.getElementById('promoValue').value = '';
+      document.getElementById('promoMinPurchase').value = '';
+      document.getElementById('promoStartDate').value = '';
+      document.getElementById('promoEndDate').value = '';
+      document.getElementById('promoActive').checked = true;
+      document.getElementById('promotionModal').classList.add('show');
+    }
+
+    function closePromoModal() {
+      document.getElementById('promotionModal').classList.remove('show');
+    }
+
+    async function savePromotion() {
+      const id = document.getElementById('promoId').value;
+      const data = {
+        name: document.getElementById('promoName').value,
+        type: document.getElementById('promoType').value,
+        value: parseFloat(document.getElementById('promoValue').value),
+        min_purchase: parseFloat(document.getElementById('promoMinPurchase').value) || null,
+        start_date: document.getElementById('promoStartDate').value || null,
+        end_date: document.getElementById('promoEndDate').value || null,
+        is_active: document.getElementById('promoActive').checked
+      };
+      if (!data.name || isNaN(data.value) || data.value <= 0) { alert('Name and valid value required'); return; }
+
+      if (id) {
+        await apiCall('/promotions/' + id, { method: 'PUT', body: JSON.stringify(data) });
+      } else {
+        await apiCall('/promotions', { method: 'POST', body: JSON.stringify(data) });
+      }
+      closePromoModal();
+      loadPromotions();
+    }
+
+    async function editPromotion(id) {
+      const promotions = await apiCall('/promotions');
+      const p = promotions.find(x => x.id === id);
+      if (!p) return;
+      document.getElementById('promoModalTitle').textContent = 'Edit Promotion';
+      document.getElementById('promoId').value = p.id;
+      document.getElementById('promoName').value = p.name;
+      document.getElementById('promoType').value = p.type;
+      document.getElementById('promoValue').value = p.value;
+      document.getElementById('promoMinPurchase').value = p.min_purchase || '';
+      document.getElementById('promoStartDate').value = p.start_date || '';
+      document.getElementById('promoEndDate').value = p.end_date || '';
+      document.getElementById('promoActive').checked = !!p.is_active;
+      document.getElementById('promotionModal').classList.add('show');
+    }
+
+    async function deletePromotion(id) {
+      if (!confirm('Delete this promotion?')) return;
+      await apiCall('/promotions/' + id, { method: 'DELETE' });
+      loadPromotions();
+    }
 
     async function loadAuditLogs() {
       const startDate = document.getElementById('auditStartDate').value;
@@ -1222,8 +1366,6 @@
       loadBlindCounts();
       loadAuditLogs();
     }
-
-    document.querySelectorAll('.nav-item')[13].addEventListener('click', loadCashUps);
 
     async function loadCashUps() {
       try {
