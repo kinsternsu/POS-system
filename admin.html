@@ -84,7 +84,14 @@
   <div class="main">
     <div class="header">
       <h1>Dashboard</h1>
-      <button class="btn btn-primary" onclick="openModal()">+ Add Employee</button>
+      <div style="display:flex;gap:0.5rem;align-items:center">
+        <select id="exportFormat" style="padding:8px 12px;background:#0f0f23;border:1px solid #333;border-radius:6px;color:#fff;font-size:0.85rem">
+          <option value="csv">CSV (Client)</option>
+          <option value="server_csv">CSV (Server)</option>
+          <option value="xlsx">Excel (.xlsx)</option>
+        </select>
+        <button class="btn btn-primary" onclick="openModal()">+ Add Employee</button>
+      </div>
     </div>
     <div class="stats-grid">
       <div class="stat-card">
@@ -118,6 +125,7 @@
     <div class="section" id="section-employees">
       <div class="search-bar">
         <input type="text" id="employeeSearch" placeholder="Search employees..." oninput="filterEmployees()">
+        <button class="btn btn-secondary" onclick="exportFromAPI('/employees', 'employees', EXPORT_COLUMNS.employees)">Export CSV</button>
       </div>
       <table id="employeesTable">
         <thead>
@@ -145,6 +153,7 @@
       <div class="search-bar">
         <button class="btn btn-primary" onclick="triggerAutoReorder()">Auto Reorder Now</button>
         <button class="btn btn-secondary" onclick="loadReorderAlerts()">Refresh</button>
+        <button class="btn btn-secondary" onclick="exportFromAPI('/reorder/alerts', 'reorder_alerts', EXPORT_COLUMNS.reorderAlerts)">Export CSV</button>
       </div>
       <table id="reorderTable">
         <thead>
@@ -158,6 +167,7 @@
       <div class="search-bar">
         <input type="text" id="supplierSearch" placeholder="Search suppliers..." oninput="loadSuppliers()">
         <button class="btn btn-primary" onclick="openSupplierModal()">+ Add Supplier</button>
+        <button class="btn btn-secondary" onclick="exportFromAPI('/suppliers', 'suppliers', EXPORT_COLUMNS.suppliers)">Export CSV</button>
       </div>
       <table id="suppliersTable">
         <thead>
@@ -177,6 +187,7 @@
           <option value="received">Received</option>
         </select>
         <button class="btn btn-primary" onclick="openPOModal()">+ Create PO</button>
+        <button class="btn btn-secondary" onclick="exportFromAPI('/purchase-orders', 'purchase_orders', EXPORT_COLUMNS.purchaseOrders)">Export CSV</button>
       </div>
       <table id="poTable">
         <thead>
@@ -194,6 +205,7 @@
           <option value="completed">Completed</option>
         </select>
         <button class="btn btn-primary" onclick="openGRVModal()">+ Create GRV</button>
+        <button class="btn btn-secondary" onclick="exportFromAPI('/grv', 'goods_received', EXPORT_COLUMNS.grvs)">Export CSV</button>
       </div>
       <table id="grvTable">
         <thead>
@@ -207,6 +219,7 @@
       <div class="search-bar">
         <input type="text" id="productSearch" placeholder="Search products..." oninput="filterProducts()">
         <button class="btn btn-primary" onclick="addProduct()">+ Add Product</button>
+        <button class="btn btn-secondary" onclick="exportFromAPI('/products', 'products', EXPORT_COLUMNS.products)">Export CSV</button>
       </div>
       <table id="productsTable">
         <thead>
@@ -220,6 +233,7 @@
       <div class="search-bar">
         <input type="date" id="transactionDate" onchange="loadTransactions()">
         <button class="btn btn-secondary" onclick="loadTransactions()">Filter</button>
+        <button class="btn btn-secondary" onclick="exportFromAPI('/transactions', 'transactions', EXPORT_COLUMNS.transactions, 'limit=10000&date=' + document.getElementById('transactionDate').value)">Export CSV</button>
       </div>
       <table id="transactionsTable">
         <thead>
@@ -238,6 +252,7 @@
           <option value="damaged">Damaged</option>
         </select>
         <button class="btn btn-secondary" onclick="loadReturns()">Filter</button>
+        <button class="btn btn-secondary" onclick="exportFromAPI('/returns', 'returns', EXPORT_COLUMNS.returns, 'limit=10000&date=' + document.getElementById('returnDate').value + '&status=' + document.getElementById('returnStatusFilter').value)">Export CSV</button>
       </div>
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:1.5rem">
         <div class="stat-card">
@@ -269,6 +284,7 @@
       <div class="header">
         <h2>Promotions</h2>
         <button class="btn btn-primary" onclick="openPromoModal()">+ Add Promotion</button>
+        <button class="btn btn-secondary" onclick="exportFromAPI('/promotions', 'promotions', EXPORT_COLUMNS.promotions)">Export CSV</button>
       </div>
       <table id="promotionsTable">
         <thead>
@@ -309,6 +325,7 @@
           <option value="blind_count">Blind Count</option>
         </select>
         <button class="btn btn-secondary" onclick="loadAuditLogs()">Refresh</button>
+        <button class="btn btn-secondary" onclick="exportAuditLogs()">Export CSV</button>
       </div>
       <table id="auditTable">
         <thead>
@@ -327,6 +344,7 @@
           <option value="rejected">Rejected</option>
         </select>
         <button class="btn btn-secondary" onclick="loadAdjustmentRequests()">Refresh</button>
+        <button class="btn btn-secondary" onclick="exportFromAPI('/stock/requests', 'stock_adjustments', EXPORT_COLUMNS.adjustments, 'limit=10000&status=' + document.getElementById('adjStatusFilter').value)">Export CSV</button>
       </div>
       <table id="adjustmentsTable">
         <thead>
@@ -340,6 +358,7 @@
       <div class="search-bar">
         <button class="btn btn-primary" onclick="startBlindCount()">+ Start New Count</button>
         <button class="btn btn-secondary" onclick="loadBlindCounts()">Refresh</button>
+        <button class="btn btn-secondary" onclick="exportFromAPI('/blind-counts', 'blind_counts', EXPORT_COLUMNS.blindCounts)">Export CSV</button>
       </div>
       <table id="blindCountsTable">
         <thead>
@@ -352,6 +371,7 @@
     <div class="section" id="section-cash-ups">
       <div class="search-bar">
         <button class="btn btn-secondary" onclick="loadCashUps()">Refresh</button>
+        <button class="btn btn-secondary" onclick="exportFromAPI('/cash-up/history', 'cash_ups', EXPORT_COLUMNS.cashUps, 'limit=10000')">Export CSV</button>
       </div>
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:1.5rem">
         <div class="stat-card">
@@ -579,6 +599,214 @@
       });
       return res.json();
     }
+
+    function getExportFormat() {
+      return document.getElementById('exportFormat')?.value || 'csv';
+    }
+
+    async function exportFromAPI(endpoint, filename, columns, params = '') {
+      const format = getExportFormat();
+      if (format === 'xlsx' || format === 'server_csv') {
+        const entity = endpoint.split('?')[0];
+        const body = { entity, format: format === 'xlsx' ? 'xlsx' : 'csv' };
+        const searchParams = new URLSearchParams(params);
+        for (const [k, v] of searchParams) {
+          if (v) body[k] = v;
+        }
+        const res = await fetch(`${API_URL}/export`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        if (!res.ok) { const err = await res.json(); alert(err.error); return; }
+        const blob = await res.blob();
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = filename + '.' + (format === 'xlsx' ? 'xlsx' : 'csv');
+        link.click();
+        URL.revokeObjectURL(link.href);
+      } else {
+        const data = await apiCall(endpoint + '?' + params);
+        exportCSV(data, filename, columns);
+      }
+    }
+
+    async function exportAuditLogs() {
+      const startDate = document.getElementById('auditStartDate').value;
+      const endDate = document.getElementById('auditEndDate').value;
+      const type = document.getElementById('auditTypeFilter').value;
+      let params = 'limit=10000';
+      if (startDate) params += '&start_date=' + startDate;
+      if (endDate) params += '&end_date=' + endDate;
+      if (type) params += '&action_type=' + type;
+      const format = getExportFormat();
+      if (format === 'xlsx' || format === 'server_csv') {
+        const body = { entity: 'audit', format: format === 'xlsx' ? 'xlsx' : 'csv' };
+        if (startDate) body.start_date = startDate;
+        if (endDate) body.end_date = endDate;
+        if (type) body.action_type = type;
+        const res = await fetch(`${API_URL}/export`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        if (!res.ok) { const err = await res.json(); alert(err.error); return; }
+        const blob = await res.blob();
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = 'audit_logs.' + (format === 'xlsx' ? 'xlsx' : 'csv');
+        link.click();
+        URL.revokeObjectURL(link.href);
+      } else {
+        const data = await apiCall('/audit?' + params);
+        exportCSV(data, 'audit_logs', EXPORT_COLUMNS.auditLogs);
+      }
+    }
+
+    function exportCSV(rows, filename, columns) {
+      if (!rows || !rows.length) { alert('No data to export'); return; }
+      const headers = columns.map(c => c.label);
+      const esc = v => {
+        if (v === null || v === undefined) return '';
+        const s = String(v);
+        return s.includes(',') || s.includes('"') || s.includes('\n') ? '"' + s.replace(/"/g, '""') + '"' : s;
+      };
+      const csv = [headers.join(','), ...rows.map(r => columns.map(c => esc(c.value(r))).join(','))].join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = filename + '.csv';
+      link.click();
+      URL.revokeObjectURL(link.href);
+    }
+
+    const EXPORT_COLUMNS = {
+      products: [
+        { label: 'Name', value: r => r.name },
+        { label: 'SKU', value: r => r.sku || '' },
+        { label: 'Barcode', value: r => r.barcode || '' },
+        { label: 'Price', value: r => r.price.toFixed(2) },
+        { label: 'Cost Price', value: r => r.cost_price?.toFixed(2) || '' },
+        { label: 'Stock', value: r => r.stock ?? '' },
+        { label: 'Category', value: r => r.category || '' },
+        { label: 'Supplier', value: r => r.supplier_name || '' },
+        { label: 'Pricing Type', value: r => r.pricing_type || 'fixed' },
+        { label: 'Active', value: r => r.is_active ? 'Yes' : 'No' }
+      ],
+      employees: [
+        { label: 'Name', value: r => r.name },
+        { label: 'Username', value: r => r.username },
+        { label: 'Role', value: r => r.role },
+        { label: 'Active', value: r => r.is_active ? 'Yes' : 'No' },
+        { label: 'Created', value: r => r.created_at ? new Date(r.created_at).toLocaleString() : '' }
+      ],
+      suppliers: [
+        { label: 'Name', value: r => r.name },
+        { label: 'Contact Person', value: r => r.contact_person || '' },
+        { label: 'Email', value: r => r.email || '' },
+        { label: 'Phone', value: r => r.phone || '' },
+        { label: 'Address', value: r => r.address || '' },
+        { label: 'Products', value: r => r.product_count ?? '' },
+        { label: 'Active', value: r => r.is_active ? 'Yes' : 'No' }
+      ],
+      transactions: [
+        { label: 'ID', value: r => r.id },
+        { label: 'Employee', value: r => r.employee_name || '' },
+        { label: 'Items', value: r => (r.items || []).map(i => i.name + ' x' + (i.quantity || i.weight || 1)).join('; ') },
+        { label: 'Item Count', value: r => (r.items || []).length },
+        { label: 'Subtotal', value: r => r.subtotal.toFixed(2) },
+        { label: 'Discount', value: r => r.discount_amount ? r.discount_amount.toFixed(2) : '0.00' },
+        { label: 'Tax', value: r => r.tax.toFixed(2) },
+        { label: 'Total', value: r => r.total.toFixed(2) },
+        { label: 'Payment', value: r => r.payment_method },
+        { label: 'Date', value: r => new Date(r.created_at).toLocaleString() }
+      ],
+      returns: [
+        { label: 'ID', value: r => r.id },
+        { label: 'Employee', value: r => r.employee_name || '' },
+        { label: 'Items', value: r => (r.items || []).map(i => i.name + ' x' + i.quantity).join('; ') },
+        { label: 'Refund', value: r => r.refund_amount.toFixed(2) },
+        { label: 'Discount', value: r => r.discount_amount ? r.discount_amount.toFixed(2) : '0.00' },
+        { label: 'Reason', value: r => r.reason || '' },
+        { label: 'Status', value: r => r.status },
+        { label: 'Payment', value: r => r.payment_method },
+        { label: 'Date', value: r => new Date(r.created_at).toLocaleString() }
+      ],
+      purchaseOrders: [
+        { label: 'PO Number', value: r => r.po_number },
+        { label: 'Supplier', value: r => r.supplier_name || '' },
+        { label: 'Total', value: r => (r.total_amount || 0).toFixed(2) },
+        { label: 'Status', value: r => r.status },
+        { label: 'Items', value: r => r.item_count || '' },
+        { label: 'Expected', value: r => r.expected_date || '' },
+        { label: 'Created By', value: r => r.created_by_name || '' },
+        { label: 'Date', value: r => new Date(r.created_at).toLocaleString() }
+      ],
+      grvs: [
+        { label: 'GRV Number', value: r => r.grv_number },
+        { label: 'PO Number', value: r => r.po_number || '' },
+        { label: 'Supplier', value: r => r.supplier_name || '' },
+        { label: 'Received By', value: r => r.received_by_name || '' },
+        { label: 'Status', value: r => r.status },
+        { label: 'Date', value: r => new Date(r.created_at).toLocaleString() }
+      ],
+      reorderAlerts: [
+        { label: 'Product', value: r => r.name },
+        { label: 'Stock', value: r => r.stock },
+        { label: 'Reorder Point', value: r => r.reorder_point },
+        { label: 'Reorder Qty', value: r => r.reorder_quantity || '' },
+        { label: 'Supplier', value: r => r.supplier_name || '' },
+        { label: 'Alert Level', value: r => r.alert_level },
+        { label: 'Sales Velocity', value: r => r.sales_velocity?.toFixed(2) || '' },
+        { label: 'Days Until Stockout', value: r => r.days_until_stockout ?? '' }
+      ],
+      auditLogs: [
+        { label: 'Date', value: r => new Date(r.created_at).toLocaleString() },
+        { label: 'Action', value: r => r.action_type },
+        { label: 'Product', value: r => r.product_name || '-' },
+        { label: 'Change', value: r => (r.quantity_change > 0 ? '+' : '') + r.quantity_change },
+        { label: 'User', value: r => r.user_name || '-' },
+        { label: 'Reason', value: r => r.reason || '-' }
+      ],
+      adjustments: [
+        { label: 'Product', value: r => r.product_name },
+        { label: 'Current Stock', value: r => r.current_stock },
+        { label: 'Requested Stock', value: r => r.new_stock },
+        { label: 'Change', value: r => (r.new_stock - r.current_stock > 0 ? '+' : '') + (r.new_stock - r.current_stock) },
+        { label: 'Reason', value: r => r.reason },
+        { label: 'Requested By', value: r => r.requested_by_name || '' },
+        { label: 'Status', value: r => r.status },
+        { label: 'Date', value: r => new Date(r.created_at).toLocaleString() }
+      ],
+      blindCounts: [
+        { label: 'Date', value: r => r.count_date },
+        { label: 'Counted By', value: r => r.counted_by_name || '' },
+        { label: 'Items', value: r => r.item_count || '' },
+        { label: 'Variance', value: r => r.total_variance ?? 0 },
+        { label: 'Status', value: r => r.status },
+        { label: 'Completed', value: r => r.completed_at ? new Date(r.completed_at).toLocaleString() : '-' }
+      ],
+      cashUps: [
+        { label: 'Date', value: r => r.start_time ? new Date(r.start_time).toLocaleDateString() : '-' },
+        { label: 'Employee', value: r => r.employee_name || '' },
+        { label: 'Expected Cash', value: r => (r.expected_cash || 0).toFixed(2) },
+        { label: 'Actual Cash', value: r => (r.actual_cash || 0).toFixed(2) },
+        { label: 'Card', value: r => (r.card_amount || 0).toFixed(2) },
+        { label: 'Cheque', value: r => (r.cheque_amount || 0).toFixed(2) },
+        { label: 'Payouts', value: r => (r.payouts || 0).toFixed(2) },
+        { label: 'Variance', value: r => (r.variance || 0).toFixed(2) },
+        { label: 'Status', value: r => r.variance === 0 ? 'Balanced' : r.variance > 0 ? 'Over' : 'Short' }
+      ],
+      promotions: [
+        { label: 'Name', value: r => r.name },
+        { label: 'Type', value: r => r.type === 'percentage' ? 'Percentage' : 'Fixed Amount' },
+        { label: 'Value', value: r => r.type === 'percentage' ? r.value + '%' : '$' + r.value.toFixed(2) },
+        { label: 'Min Purchase', value: r => r.min_purchase ? '$' + r.min_purchase.toFixed(2) : '' },
+        { label: 'Start Date', value: r => r.start_date || '' },
+        { label: 'End Date', value: r => r.end_date || '' },
+        { label: 'Active', value: r => r.is_active ? 'Yes' : 'No' }
+      ]
+    };
 
     async function loadDashboard() {
       try {
