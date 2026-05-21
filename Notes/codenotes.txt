@@ -1,0 +1,1 @@
+If i was a store manager, opening my first store, and I have my first products, how would I use this sysyem to process the products and other necessarry actions that a manager would do. I want to table all the necessarry functionality needed from a pos system that a store manager would use. then compare it with 4pos software. give me in .md format, and place in the notes folder.
