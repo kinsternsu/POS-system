@@ -72,6 +72,7 @@
     <div class="nav-item" data-section="blind-counts">Blind Counts</div>
     <div class="nav-item" data-section="cash-ups">Cash-Ups</div>
     <div class="nav-item" data-section="promotions">Promotions</div>
+    <div class="nav-item" data-section="reports">Reports</div>
     <div class="nav-item" data-section="settings">Settings</div>
     <div class="nav-item" onclick="window.location.href='pos.html'" style="color:#4ade80">POS Terminal</div>
     <div class="user-info">
@@ -93,23 +94,38 @@
         <button class="btn btn-primary" onclick="openModal()">+ Add Employee</button>
       </div>
     </div>
-    <div class="stats-grid">
+    <div class="stats-grid" style="margin-bottom:0.5rem">
       <div class="stat-card">
-        <h3>Today's Sales</h3>
-        <div class="value" id="todaySales">$0.00</div>
+        <h3>Total Sales</h3>
+        <div class="value" id="totalSales">$0.00</div>
       </div>
       <div class="stat-card">
-        <h3>Today's Transactions</h3>
-        <div class="value blue" id="todayTransactions">0</div>
+        <h3>Transactions</h3>
+        <div class="value blue" id="totalTxns">0</div>
+      </div>
+      <div class="stat-card">
+        <h3>Avg Transaction</h3>
+        <div class="value green" id="avgTxn">$0.00</div>
+      </div>
+      <div class="stat-card">
+        <h3>Discounts</h3>
+        <div class="value orange" id="totalDiscounts">$0.00</div>
       </div>
       <div class="stat-card">
         <h3>Total Products</h3>
-        <div class="value green" id="totalProducts">0</div>
+        <div class="value" id="totalProducts">0</div>
       </div>
       <div class="stat-card">
-        <h3>Today's Discounts</h3>
-        <div class="value orange" id="todayDiscounts">$0.00</div>
+        <h3>Total Employees</h3>
+        <div class="value blue" id="totalEmployees">0</div>
       </div>
+    </div>
+    <div style="display:flex;gap:0.75rem;align-items:center;margin-bottom:1rem;flex-wrap:wrap">
+      <label style="color:#888;font-size:0.85rem">From:</label>
+      <input type="date" id="reportStartDate" style="padding:8px 12px;background:#0f0f23;border:1px solid #333;border-radius:6px;color:#fff">
+      <label style="color:#888;font-size:0.85rem">To:</label>
+      <input type="date" id="reportEndDate" style="padding:8px 12px;background:#0f0f23;border:1px solid #333;border-radius:6px;color:#fff">
+      <button class="btn btn-secondary" onclick="loadDashboard()">Apply</button>
     </div>
 
     <div class="section active" id="section-dashboard">
@@ -292,6 +308,76 @@
         </thead>
         <tbody></tbody>
       </table>
+    </div>
+
+    <div class="section" id="section-reports">
+      <div class="header">
+        <h2>Reports</h2>
+        <div style="display:flex;gap:0.5rem;align-items:center">
+          <label style="color:#888;font-size:0.85rem">From:</label>
+          <input type="date" id="rptStartDate" style="padding:8px 12px;background:#0f0f23;border:1px solid #333;border-radius:6px;color:#fff">
+          <label style="color:#888;font-size:0.85rem">To:</label>
+          <input type="date" id="rptEndDate" style="padding:8px 12px;background:#0f0f23;border:1px solid #333;border-radius:6px;color:#fff">
+          <button class="btn btn-secondary" onclick="loadReports()">Apply</button>
+        </div>
+      </div>
+      <div style="display:flex;gap:0.5rem;margin-bottom:1rem;flex-wrap:wrap">
+        <button class="btn btn-sm" style="background:#e94560;color:#fff;border:none" onclick="switchReportTab('summary')">Summary</button>
+        <button class="btn btn-sm" style="background:#333;color:#fff;border:none" onclick="switchReportTab('products')">Products</button>
+        <button class="btn btn-sm" style="background:#333;color:#fff;border:none" onclick="switchReportTab('categories')">Categories</button>
+        <button class="btn btn-sm" style="background:#333;color:#fff;border:none" onclick="switchReportTab('employees')">Employees</button>
+        <button class="btn btn-sm" style="background:#333;color:#fff;border:none" onclick="switchReportTab('profit')">Profit</button>
+        <button class="btn btn-sm" style="background:#333;color:#fff;border:none" onclick="switchReportTab('zreport')">Z-Report</button>
+      </div>
+
+      <div id="reportTabSummary" class="report-tab">
+        <div class="stats-grid" style="margin-bottom:1rem">
+          <div class="stat-card"><h3>Total Sales</h3><div class="value" id="rptTotalSales">$0.00</div></div>
+          <div class="stat-card"><h3>Transactions</h3><div class="value blue" id="rptTotalTxns">0</div></div>
+          <div class="stat-card"><h3>Discounts</h3><div class="value orange" id="rptDiscounts">$0.00</div></div>
+          <div class="stat-card"><h3>Returns</h3><div class="value" style="color:#ef4444" id="rptReturns">0</div></div>
+        </div>
+        <h4 style="margin-bottom:0.5rem;color:#888">Payment Method Breakdown</h4>
+        <table id="rptPaymentTable"><thead><tr><th>Method</th><th>Count</th><th>Total</th></tr></thead><tbody></tbody></table>
+        <h4 style="margin:1rem 0 0.5rem;color:#888">Top Products (by Revenue)</h4>
+        <table id="rptTopProducts"><thead><tr><th>Product</th><th>Qty Sold</th><th>Revenue</th><th>Times Sold</th></tr></thead><tbody></tbody></table>
+      </div>
+
+      <div id="reportTabProducts" class="report-tab" style="display:none">
+        <div class="search-bar"><input type="text" id="rptProdSearch" placeholder="Filter by category..." oninput="loadReportProducts()"></div>
+        <table id="rptProductsTable"><thead><tr><th>Product</th><th>Category</th><th>Qty Sold</th><th>Revenue</th><th>Times Sold</th></tr></thead><tbody></tbody></table>
+      </div>
+
+      <div id="reportTabCategories" class="report-tab" style="display:none">
+        <table id="rptCategoriesTable"><thead><tr><th>Category</th><th>Transactions</th><th>Qty Sold</th><th>Revenue</th></tr></thead><tbody></tbody></table>
+        <div style="margin-top:1rem;background:#1a1a2e;border-radius:12px;padding:1rem">
+          <canvas id="catChart" height="200" style="width:100%"></canvas>
+        </div>
+      </div>
+
+      <div id="reportTabEmployees" class="report-tab" style="display:none">
+        <table id="rptEmployeesTable"><thead><tr><th>Employee</th><th>Transactions</th><th>Sales</th><th>Discounts Given</th><th>Avg/Txn</th><th>Returns</th></tr></thead><tbody></tbody></table>
+      </div>
+
+      <div id="reportTabProfit" class="report-tab" style="display:none">
+        <div class="stats-grid" style="margin-bottom:1rem">
+          <div class="stat-card"><h3>Total Revenue</h3><div class="value" id="rptProfitRevenue">$0.00</div></div>
+          <div class="stat-card"><h3>Total Cost</h3><div class="value orange" id="rptProfitCost">$0.00</div></div>
+          <div class="stat-card"><h3>Total Profit</h3><div class="value green" id="rptProfitAmount">$0.00</div></div>
+          <div class="stat-card"><h3>Margin</h3><div class="value blue" id="rptProfitMargin">0%</div></div>
+        </div>
+        <h4 style="margin-bottom:0.5rem;color:#888">By Product</h4>
+        <table id="rptProfitTable"><thead><tr><th>Product</th><th>Sold</th><th>Revenue</th><th>Cost</th><th>Profit</th><th>Margin</th></tr></thead><tbody></tbody></table>
+      </div>
+
+      <div id="reportTabZreport" class="report-tab" style="display:none">
+        <div class="search-bar">
+          <input type="date" id="rptZDate" style="padding:8px 12px;background:#0f0f23;border:1px solid #333;border-radius:6px;color:#fff">
+          <button class="btn btn-secondary" onclick="loadZReport()">Load</button>
+          <button class="btn btn-secondary" onclick="window.print()">Print</button>
+        </div>
+        <div id="zreportContent"></div>
+      </div>
     </div>
 
     <div class="section" id="section-settings">
@@ -808,21 +894,47 @@
       ]
     };
 
+    function getReportDates() {
+      const sd = document.getElementById('reportStartDate').value;
+      const ed = document.getElementById('reportEndDate').value;
+      const today = new Date().toISOString().split('T')[0];
+      if (!sd && !ed) {
+        document.getElementById('reportStartDate').value = today;
+        document.getElementById('reportEndDate').value = today;
+        return { start: today, end: today };
+      }
+      return { start: sd, end: ed || today };
+    }
+
+    function getRptDates() {
+      const sd = document.getElementById('rptStartDate').value;
+      const ed = document.getElementById('rptEndDate').value;
+      const today = new Date().toISOString().split('T')[0];
+      if (!sd && !ed) {
+        document.getElementById('rptStartDate').value = today;
+        document.getElementById('rptEndDate').value = today;
+        return { start: today, end: today };
+      }
+      return { start: sd, end: ed || today };
+    }
+
     async function loadDashboard() {
       try {
-        const today = new Date().toISOString().split('T')[0];
-        const [stats, products, employees, recent] = await Promise.all([
-          apiCall(`/transactions/stats?startDate=${today}&endDate=${today}`),
+        const { start, end } = getReportDates();
+        const [stats, products, employees, recent, detailed] = await Promise.all([
+          apiCall(`/transactions/stats?startDate=${start}&endDate=${end}`),
           apiCall('/products'),
           apiCall('/employees'),
-          apiCall(`/transactions?limit=10&date=${today}`)
+          apiCall(`/transactions?limit=10&date=${start === end ? start : ''}`),
+          apiCall(`/transactions/stats/detailed?startDate=${start}&endDate=${end}`)
         ]);
-        document.getElementById('todaySales').textContent = '$' + (stats.total_sales || 0).toFixed(2);
-        document.getElementById('todayTransactions').textContent = stats.total_transactions || 0;
+        document.getElementById('totalSales').textContent = '$' + (stats.total_sales || 0).toFixed(2);
+        document.getElementById('totalTxns').textContent = stats.total_transactions || 0;
+        document.getElementById('avgTxn').textContent = '$' + (detailed.avg_transaction_value || 0).toFixed(2);
+        document.getElementById('totalDiscounts').textContent = '$' + (stats.total_discounts || 0).toFixed(2);
         document.getElementById('totalProducts').textContent = products.length;
-        document.getElementById('todayDiscounts').textContent = '$' + (stats.total_discounts || 0).toFixed(2);
+        document.getElementById('totalEmployees').textContent = employees.length;
         renderRecentTransactions(recent);
-        document.getElementById('transactionDate').value = today;
       } catch (err) { console.error(err); }
     }
 
@@ -1392,7 +1504,8 @@
     document.querySelectorAll('.nav-item')[11].addEventListener('click', loadBlindCounts);
     document.querySelectorAll('.nav-item')[12].addEventListener('click', loadCashUps);
     document.querySelectorAll('.nav-item')[13].addEventListener('click', loadPromotions);
-    document.querySelectorAll('.nav-item')[14].addEventListener('click', loadSettings);
+    document.querySelectorAll('.nav-item')[14].addEventListener('click', loadReports);
+    document.querySelectorAll('.nav-item')[15].addEventListener('click', loadSettings);
 
     async function loadPromotions() {
       const promotions = await apiCall('/promotions');
@@ -1474,6 +1587,193 @@
       if (!confirm('Delete this promotion?')) return;
       await apiCall('/promotions/' + id, { method: 'DELETE' });
       loadPromotions();
+    }
+
+    let currentReportTab = 'summary';
+
+    function switchReportTab(tab) {
+      currentReportTab = tab;
+      document.querySelectorAll('.report-tab').forEach(t => t.style.display = 'none');
+      document.getElementById('reportTab' + tab.charAt(0).toUpperCase() + tab.slice(1)).style.display = 'block';
+      document.querySelectorAll('#section-reports .btn-sm').forEach(b => b.style.background = '#333');
+      event.target.style.background = '#e94560';
+      loadReports();
+    }
+
+    async function loadReports() {
+      const { start, end } = getRptDates();
+      try {
+        switch (currentReportTab) {
+          case 'summary': await loadReportSummary(start, end); break;
+          case 'products': await loadReportProducts(start, end); break;
+          case 'categories': await loadReportCategories(start, end); break;
+          case 'employees': await loadReportEmployees(start, end); break;
+          case 'profit': await loadReportProfit(start, end); break;
+          case 'zreport': await loadZReport(); break;
+        }
+      } catch (err) { console.error('Reports error:', err); }
+    }
+
+    async function loadReportSummary(start, end) {
+      const data = await apiCall(`/reports/summary?startDate=${start}&endDate=${end}`);
+      document.getElementById('rptTotalSales').textContent = '$' + (data.sales?.total_sales || 0).toFixed(2);
+      document.getElementById('rptTotalTxns').textContent = data.sales?.total_transactions || 0;
+      document.getElementById('rptDiscounts').textContent = '$' + (data.sales?.total_discounts || 0).toFixed(2);
+      document.getElementById('rptReturns').textContent = data.returns?.total_returns || 0;
+
+      const payTbody = document.querySelector('#rptPaymentTable tbody');
+      const payments = data.by_payment_method || [];
+      payTbody.innerHTML = payments.length ? payments.map(p =>
+        `<tr><td>${p.payment_method}</td><td>${p.count}</td><td>$${p.total.toFixed(2)}</td></tr>`
+      ).join('') : '<tr><td colspan="3" class="empty">No data</td></tr>';
+
+      const prodTbody = document.querySelector('#rptTopProducts tbody');
+      const products = data.top_products || [];
+      prodTbody.innerHTML = products.length ? products.map(p =>
+        `<tr><td>${p.product_name}</td><td>${p.total_quantity}</td><td>$${p.total_revenue.toFixed(2)}</td><td>${p.times_sold}</td></tr>`
+      ).join('') : '<tr><td colspan="4" class="empty">No data</td></tr>';
+    }
+
+    async function loadReportProducts(start, end) {
+      const cat = document.getElementById('rptProdSearch').value;
+      let url = `/reports/products?startDate=${start}&endDate=${end}`;
+      if (cat) url += '&category=' + encodeURIComponent(cat);
+      const data = await apiCall(url);
+      const tbody = document.querySelector('#rptProductsTable tbody');
+      if (!data.length) { tbody.innerHTML = '<tr><td colspan="5" class="empty">No products sold in this period</td></tr>'; return; }
+      tbody.innerHTML = data.map(p =>
+        `<tr><td>${p.product_name}</td><td>${p.category || ''}</td><td>${p.total_quantity_sold}</td><td>$${p.total_revenue.toFixed(2)}</td><td>${p.times_sold}</td></tr>`
+      ).join('');
+    }
+
+    async function loadReportCategories(start, end) {
+      const data = await apiCall(`/reports/categories?startDate=${start}&endDate=${end}`);
+      const tbody = document.querySelector('#rptCategoriesTable tbody');
+      if (!data.length) { tbody.innerHTML = '<tr><td colspan="4" class="empty">No data</td></tr>'; return; }
+      tbody.innerHTML = data.map(c =>
+        `<tr><td>${c.category}</td><td>${c.transaction_count}</td><td>${c.total_quantity_sold}</td><td>$${c.total_revenue.toFixed(2)}</td></tr>`
+      ).join('');
+      drawCategoryChart(data);
+    }
+
+    async function loadReportEmployees(start, end) {
+      const data = await apiCall(`/reports/employees?startDate=${start}&endDate=${end}`);
+      const tbody = document.querySelector('#rptEmployeesTable tbody');
+      if (!data.length) { tbody.innerHTML = '<tr><td colspan="6" class="empty">No data</td></tr>'; return; }
+      tbody.innerHTML = data.map(e =>
+        `<tr><td>${e.employee_name}</td><td>${e.total_transactions}</td><td>$${e.total_sales.toFixed(2)}</td><td>$${e.total_discounts_given.toFixed(2)}</td><td>$${e.avg_transaction_value.toFixed(2)}</td><td>${e.returns_processed}</td></tr>`
+      ).join('');
+    }
+
+    async function loadReportProfit(start, end) {
+      const data = await apiCall(`/reports/profit?startDate=${start}&endDate=${end}`);
+      document.getElementById('rptProfitRevenue').textContent = '$' + (data.total_revenue || 0).toFixed(2);
+      document.getElementById('rptProfitCost').textContent = '$' + (data.total_cost || 0).toFixed(2);
+      document.getElementById('rptProfitAmount').textContent = '$' + (data.total_profit || 0).toFixed(2);
+      document.getElementById('rptProfitMargin').textContent = (data.profit_margin_pct || 0).toFixed(1) + '%';
+
+      const tbody = document.querySelector('#rptProfitTable tbody');
+      const products = data.by_product || [];
+      if (!products.length) { tbody.innerHTML = '<tr><td colspan="6" class="empty">No data</td></tr>'; return; }
+      tbody.innerHTML = products.map(p =>
+        `<tr><td>${p.product_name}</td><td>${p.quantity_sold}</td><td>$${p.revenue.toFixed(2)}</td><td>$${p.cost.toFixed(2)}</td><td style="color:${p.profit >= 0 ? '#4ade80' : '#ef4444'}">$${p.profit.toFixed(2)}</td><td>${p.profit_margin_pct.toFixed(1)}%</td></tr>`
+      ).join('');
+    }
+
+    function drawCategoryChart(data) {
+      const canvas = document.getElementById('catChart');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const w = canvas.parentElement.clientWidth;
+      canvas.width = w * 2;
+      canvas.height = 400;
+      canvas.style.width = w + 'px';
+      canvas.style.height = '200px';
+      ctx.scale(2, 2);
+
+      const maxVal = Math.max(...data.map(d => d.total_revenue), 1);
+      const barW = Math.max(20, Math.min(60, (w - 60) / data.length));
+      const gap = 10;
+      const startX = 40;
+      const chartH = 160;
+      const bottomY = 190;
+
+      ctx.clearRect(0, 0, w, 200);
+
+      ctx.fillStyle = '#1a1a2e';
+      ctx.fillRect(0, 0, w, 200);
+
+      ctx.strokeStyle = '#333';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(startX, 20);
+      ctx.lineTo(startX, bottomY);
+      ctx.lineTo(w - 10, bottomY);
+      ctx.stroke();
+
+      data.forEach((d, i) => {
+        const barH = (d.total_revenue / maxVal) * chartH;
+        const x = startX + i * (barW + gap) + 5;
+        const y = bottomY - barH;
+
+        const gradient = ctx.createLinearGradient(x, y, x, bottomY);
+        gradient.addColorStop(0, '#e94560');
+        gradient.addColorStop(1, '#1a1a2e');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(x, y, barW, barH);
+
+        ctx.fillStyle = '#888';
+        ctx.font = '9px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('$' + d.total_revenue.toFixed(0), x + barW / 2, y - 3);
+        ctx.fillText(d.category.length > 8 ? d.category.slice(0, 8) + '..' : d.category, x + barW / 2, bottomY + 12);
+      });
+    }
+
+    async function loadZReport() {
+      const today = new Date().toISOString().split('T')[0];
+      const date = document.getElementById('rptZDate').value || today;
+      document.getElementById('rptZDate').value = date;
+      const data = await apiCall(`/reports/z-report?date=${date}`);
+      const el = document.getElementById('zreportContent');
+
+      let html = `<div style="background:#1a1a2e;border-radius:12px;padding:1.5rem;max-width:600px">
+        <h3 style="text-align:center;margin-bottom:0.5rem">Z-REPORT</h3>
+        <p style="text-align:center;color:#888;margin-bottom:1rem">${date}</p>
+
+        <div class="stats-grid" style="margin-bottom:1rem">
+          <div class="stat-card"><h3>Total Sales</h3><div class="value">$${(data.sales?.total_sales || 0).toFixed(2)}</div></div>
+          <div class="stat-card"><h3>Transactions</h3><div class="value blue">${data.sales?.transaction_count || 0}</div></div>
+          <div class="stat-card"><h3>Avg Sale</h3><div class="value green">$${(data.sales?.avg_sale || 0).toFixed(2)}</div></div>
+          <div class="stat-card"><h3>Discounts</h3><div class="value orange">$${(data.sales?.total_discounts || 0).toFixed(2)}</div></div>
+        </div>
+
+        <div class="stats-grid" style="margin-bottom:1rem">
+          <div class="stat-card"><h3>Tax Collected</h3><div class="value">$${(data.sales?.total_tax || 0).toFixed(2)}</div></div>
+          <div class="stat-card"><h3>Returns</h3><div class="value" style="color:#ef4444">${data.returns?.return_count || 0}</div></div>
+          <div class="stat-card"><h3>Refunds</h3><div class="value" style="color:#ef4444">$${(data.total_refunds || 0).toFixed(2)}</div></div>
+          <div class="stat-card"><h3>Est. Profit</h3><div class="value green">$${(data.estimated_profit || 0).toFixed(2)}</div></div>
+        </div>
+
+        <h4 style="color:#888;margin-bottom:0.5rem">Payment Methods</h4>
+        <table style="width:100%;margin-bottom:1rem"><thead><tr><th>Method</th><th>Count</th><th>Total</th></tr></thead><tbody>
+          ${(data.by_payment_method || []).map(p => `<tr><td>${p.payment_method}</td><td>${p.count}</td><td>$${p.total.toFixed(2)}</td></tr>`).join('')}
+        </tbody></table>
+
+        <h4 style="color:#888;margin-bottom:0.5rem">Employees</h4>
+        <table style="width:100%;margin-bottom:1rem"><thead><tr><th>Employee</th><th>Transactions</th><th>Total</th></tr></thead><tbody>
+          ${(data.employees || []).map(e => `<tr><td>${e.employee_name}</td><td>${e.tx_count}</td><td>$${e.total.toFixed(2)}</td></tr>`).join('')}
+        </tbody></table>
+
+        <h4 style="color:#888;margin-bottom:0.5rem">Top Products</h4>
+        <table style="width:100%;margin-bottom:1rem"><thead><tr><th>Product</th><th>Qty</th><th>Revenue</th></tr></thead><tbody>
+          ${(data.top_products || []).map(p => `<tr><td>${p.product_name}</td><td>${p.qty}</td><td>$${p.revenue.toFixed(2)}</td></tr>`).join('')}
+        </tbody></table>
+
+        <p style="text-align:center;color:#555;font-size:0.8rem;margin-top:1rem">Generated: ${new Date(data.generated_at).toLocaleString()}</p>
+      </div>`;
+
+      el.innerHTML = html;
     }
 
     async function loadAuditLogs() {

@@ -19,6 +19,7 @@ import blindCountsRoutes from './routes/blindCounts.js';
 import cashUpRoutes from './routes/cashUp.js';
 import promotionsRoutes from './routes/promotions.js';
 import exportRoutes from './routes/export.js';
+import reportsRoutes from './routes/reports.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, '.env') });
@@ -58,6 +59,7 @@ app.use('/api/blind-counts', blindCountsRoutes);
 app.use('/api/cash-up', cashUpRoutes);
 app.use('/api/promotions', promotionsRoutes);
 app.use('/api/export', exportRoutes);
+app.use('/api/reports', reportsRoutes);
 
 app.listen(PORT, () => {
   console.log(`POS Server running at http://localhost:${PORT}`);
